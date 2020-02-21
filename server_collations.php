@@ -1,32 +1,24 @@
 <?php
 /* vim: set expandtab sw=4 ts=4 sts=4: */
-
 /**
  * Handles server charsets and collations page.
  *
  * @package PhpMyAdmin
  */
+declare(strict_types=1);
 
-namespace PMA;
+use PhpMyAdmin\Controllers\Server\CollationsController;
+use PhpMyAdmin\Response;
 
-use PMA\libraries\controllers\server\ServerCollationsController;
-use PMA\libraries\Response;
+if (! defined('ROOT_PATH')) {
+    define('ROOT_PATH', __DIR__ . DIRECTORY_SEPARATOR);
+}
 
-require_once 'libraries/common.inc.php';
+require_once ROOT_PATH . 'libraries/common.inc.php';
 
-$container = libraries\di\Container::getDefaultContainer();
-$container->factory(
-    'PMA\libraries\controllers\server\ServerCollationsController'
-);
-$container->alias(
-    'ServerCollationsController',
-    'PMA\libraries\controllers\server\ServerCollationsController'
-);
-$container->set('PMA\libraries\Response', Response::getInstance());
-$container->alias('response', 'PMA\libraries\Response');
+/** @var CollationsController $controller */
+$controller = $containerBuilder->get(CollationsController::class);
 
-/** @var ServerCollationsController $controller */
-$controller = $container->get(
-    'ServerCollationsController', array()
-);
-$controller->indexAction();
+/** @var Response $response */
+$response = $containerBuilder->get(Response::class);
+$response->addHTML($controller->indexAction());

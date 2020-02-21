@@ -22,12 +22,12 @@ class ConstantNode extends Node
 {
     private $isIdentifier;
 
-    public function __construct($value, $isIdentifier = false)
+    public function __construct($value, bool $isIdentifier = false)
     {
         $this->isIdentifier = $isIdentifier;
         parent::__construct(
-            array(),
-            array('value' => $value)
+            [],
+            ['value' => $value]
         );
     }
 
@@ -43,7 +43,7 @@ class ConstantNode extends Node
 
     public function toArray()
     {
-        $array = array();
+        $array = [];
         $value = $this->attributes['value'];
 
         if ($this->isIdentifier) {
@@ -56,7 +56,7 @@ class ConstantNode extends Node
             $array[] = 'null';
         } elseif (is_numeric($value)) {
             $array[] = $value;
-        } elseif (!is_array($value)) {
+        } elseif (!\is_array($value)) {
             $array[] = $this->dumpString($value);
         } elseif ($this->isHash($value)) {
             foreach ($value as $k => $v) {

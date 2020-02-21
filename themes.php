@@ -5,13 +5,20 @@
  *
  * @package PhpMyAdmin
  */
-use PMA\libraries\ThemeManager;
-use PMA\libraries\Response;
+declare(strict_types=1);
 
-/**
- * get some globals
- */
-require './libraries/common.inc.php';
+use PhpMyAdmin\Response;
+use PhpMyAdmin\Template;
+use PhpMyAdmin\ThemeManager;
+
+if (! defined('ROOT_PATH')) {
+    define('ROOT_PATH', __DIR__ . DIRECTORY_SEPARATOR);
+}
+
+include ROOT_PATH . 'libraries/common.inc.php';
+
+/** @var Template $template */
+$template = $containerBuilder->get('template');
 
 $response = Response::getInstance();
 $response->getFooter()->setMinimal();
@@ -20,14 +27,11 @@ $header->setBodyId('bodythemes');
 $header->setTitle('phpMyAdmin - ' . __('Theme'));
 $header->disableMenuAndConsole();
 
-$hash    = '#pma_' . preg_replace('/([0-9]*)\.([0-9]*)\..*/', '\1_\2', PMA_VERSION);
-$url     = PMA_linkURL('https://www.phpmyadmin.net/themes/') . $hash;
-$output  = '<h1>phpMyAdmin - ' . __('Theme') . '</h1>';
-$output .= '<p>';
-$output .= '<a href="' . $url . '" rel="noopener noreferrer" target="_blank">';
-$output .= __('Get more themes!');
-$output .= '</a>';
-$output .= '</p>';
-$output .= ThemeManager::getInstance()->getPrintPreviews();
-
-$response->addHTML($output);
+$response->addHTML($template->render('themes', [
+    'version' => preg_replace(
+        '/([0-9]*)\.([0-9]*)\..*/',
+        '\1_\2',
+        PMA_VERSION
+    ),
+    'previews' => ThemeManager::getInstance()->getPrintPreviews(),
+]));

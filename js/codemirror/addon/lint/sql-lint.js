@@ -1,22 +1,23 @@
-CodeMirror.sqlLint = function(text, updateLinting, options, cm) {
-
+CodeMirror.sqlLint = function (text, updateLinting, options, cm) {
     // Skipping check if text box is empty.
-    if(text.trim() == "") {
+    if (text.trim() === '') {
         updateLinting(cm, []);
         return;
     }
 
-    function handleResponse(response) {
+    function handleResponse (response) {
         var found = [];
         for (var idx in response) {
             found.push({
+                // eslint-disable-next-line new-cap
                 from: CodeMirror.Pos(
                     response[idx].fromLine, response[idx].fromColumn
                 ),
+                // eslint-disable-next-line new-cap
                 to: CodeMirror.Pos(
                     response[idx].toLine, response[idx].toColumn
                 ),
-                message: response[idx].message,
+                messageHTML: response[idx].message,
                 severity : response[idx].severity
             });
         }
@@ -25,16 +26,15 @@ CodeMirror.sqlLint = function(text, updateLinting, options, cm) {
     }
 
     $.ajax({
-        method: "POST",
-        url: "lint.php",
+        method: 'POST',
+        url: 'lint.php',
         dataType: 'json',
         data: {
-            sql_query: text,
-            token: PMA_commonParams.get('token'),
-            server: PMA_commonParams.get('server'),
-            options: options.lintOptions,
-            no_history: true,
+            'sql_query': text,
+            'server': CommonParams.get('server'),
+            'options': options.lintOptions,
+            'no_history': true,
         },
         success: handleResponse
     });
-}
+};

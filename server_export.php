@@ -5,17 +5,20 @@
  *
  * @package PhpMyAdmin
  */
-use PMA\libraries\config\PageSettings;
-use PMA\libraries\Response;
+declare(strict_types=1);
 
-/**
- * Does the common work
- */
-require_once 'libraries/common.inc.php';
-require_once 'libraries/config/user_preferences.forms.php';
-require_once 'libraries/config/page_settings.forms.php';
-require_once 'libraries/server_common.inc.php';
-require_once 'libraries/display_export.lib.php';
+use PhpMyAdmin\Config\PageSettings;
+use PhpMyAdmin\Display\Export;
+use PhpMyAdmin\Response;
+
+if (! defined('ROOT_PATH')) {
+    define('ROOT_PATH', __DIR__ . DIRECTORY_SEPARATOR);
+}
+
+global $db, $table;
+
+require_once ROOT_PATH . 'libraries/common.inc.php';
+require_once ROOT_PATH . 'libraries/server_common.inc.php';
 
 PageSettings::showGroup('Export');
 
@@ -26,10 +29,10 @@ $scripts->addFile('export.js');
 
 $export_page_title = __('View dump (schema) of databases') . "\n";
 
-$select_item = isset($tmp_select)? $tmp_select : '';
-$multi_values  = PMA_getHtmlForExportSelectOptions($select_item);
+$displayExport = new Export();
 
-require_once 'libraries/display_export.lib.php';
+$select_item = isset($tmp_select) ? $tmp_select : '';
+$multi_values = $displayExport->getHtmlForSelectOptions($select_item);
 
 if (! isset($sql_query)) {
     $sql_query = '';
@@ -42,8 +45,13 @@ if (! isset($unlim_num_rows)) {
 }
 $response = Response::getInstance();
 $response->addHTML(
-    PMA_getExportDisplay(
-        'server', $db, $table, $sql_query, $num_tables,
-        $unlim_num_rows, $multi_values
+    $displayExport->getDisplay(
+        'server',
+        $db,
+        $table,
+        $sql_query,
+        $num_tables,
+        $unlim_num_rows,
+        $multi_values
     )
 );

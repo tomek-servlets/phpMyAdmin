@@ -148,9 +148,21 @@ class Translator
     {
         if (array_key_exists($msgid, $this->cache_translations)) {
             return $this->cache_translations[$msgid];
-        } else {
-            return $msgid;
         }
+
+        return $msgid;
+    }
+
+    /**
+     * Check if a string is translated.
+     *
+     * @param string $msgid String to be checked
+     *
+     * @return bool
+     */
+    public function exists($msgid)
+    {
+        return array_key_exists($msgid, $this->cache_translations);
     }
 
     /**
@@ -179,6 +191,9 @@ class Translator
             $expr = ltrim(substr($expr, 1));
         }
 
+        // Cleanup from unwanted chars
+        $expr = preg_replace('@[^n0-9:\(\)\?=!<>/%&| ]@', '', $expr);
+
         return $expr;
     }
 
@@ -194,6 +209,9 @@ class Translator
         $parts = explode(';', $expr, 2);
         $nplurals = explode('=', trim($parts[0]), 2);
         if (strtolower(rtrim($nplurals[0])) != 'nplurals') {
+            return 1;
+        }
+        if (count($nplurals) == 1) {
             return 1;
         }
 
@@ -232,7 +250,11 @@ class Translator
 
         // cache header field for plural forms
         if (is_null($this->pluralequation)) {
-            $header = $this->cache_translations[''];
+            if (isset($this->cache_translations[''])) {
+                $header = $this->cache_translations[''];
+            } else {
+                $header = '';
+            }
             $expr = $this->extractPluralsForms($header);
             $this->pluralequation = $this->sanitizePluralExpression($expr);
             $this->pluralcount = $this->extractPluralCount($expr);
@@ -253,9 +275,13 @@ class Translator
         if (is_null($this->pluralexpression)) {
             $this->pluralexpression = new ExpressionLanguage();
         }
-        $plural = $this->pluralexpression->evaluate(
-            $this->getPluralForms(), array('n' => $n)
-        );
+        try {
+            $plural = $this->pluralexpression->evaluate(
+                $this->getPluralForms(), array('n' => $n)
+            );
+        } catch (\Exception $e) {
+            $plural = 0;
+        }
 
         if ($plural >= $this->pluralcount) {
             $plural = $this->pluralcount - 1;
@@ -287,6 +313,10 @@ class Translator
         $result = $this->cache_translations[$key];
         $list = explode(chr(0), $result);
 
+        if (!isset($list[$select])) {
+            return $list[0];
+        }
+
         return $list[$select];
     }
 
@@ -304,9 +334,9 @@ class Translator
         $ret = $this->gettext($key);
         if (strpos($ret, chr(4)) !== false) {
             return $msgid;
-        } else {
-            return $ret;
         }
+
+        return $ret;
     }
 
     /**
@@ -325,8 +355,21 @@ class Translator
         $ret = $this->ngettext($key, $msgidPlural, $number);
         if (strpos($ret, chr(4)) !== false) {
             return $msgid;
-        } else {
-            return $ret;
         }
+
+        return $ret;
+    }
+
+    /**
+     * Set translation in place
+     *
+     * @param string $msgid  String to be set
+     * @param string $msgstr Translation
+     *
+     * @return void
+     */
+    public function setTranslation($msgid, $msgstr)
+    {
+        $this->cache_translations[$msgid] = $msgstr;
     }
 }

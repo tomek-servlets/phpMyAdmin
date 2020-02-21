@@ -5,15 +5,19 @@
  *
  * @package PhpMyAdmin
  */
-use PMA\libraries\config\PageSettings;
-use PMA\libraries\Response;
+declare(strict_types=1);
 
-/**
- *
- */
-require_once 'libraries/common.inc.php';
-require_once 'libraries/config/user_preferences.forms.php';
-require_once 'libraries/config/page_settings.forms.php';
+use PhpMyAdmin\Config\PageSettings;
+use PhpMyAdmin\Display\Import;
+use PhpMyAdmin\Response;
+
+if (! defined('ROOT_PATH')) {
+    define('ROOT_PATH', __DIR__ . DIRECTORY_SEPARATOR);
+}
+
+global $db, $table, $url_query;
+
+require_once ROOT_PATH . 'libraries/common.inc.php';
 
 PageSettings::showGroup('Import');
 
@@ -22,17 +26,19 @@ $header   = $response->getHeader();
 $scripts  = $header->getScripts();
 $scripts->addFile('import.js');
 
+$import = new Import();
+
 /**
  * Gets tables information and displays top links
  */
-require_once 'libraries/tbl_common.inc.php';
+require_once ROOT_PATH . 'libraries/tbl_common.inc.php';
 $url_query .= '&amp;goto=tbl_import.php&amp;back=tbl_import.php';
 
-require_once 'libraries/tbl_info.inc.php';
-
-require 'libraries/display_import.lib.php';
 $response->addHTML(
-    PMA_getImportDisplay(
-        'table', $db, $table, $max_upload_size
+    $import->get(
+        'table',
+        $db,
+        $table,
+        $max_upload_size
     )
 );

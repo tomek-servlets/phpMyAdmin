@@ -5,81 +5,54 @@
  *
  * @package PhpMyAdmin
  */
-use PMA\libraries\Response;
+declare(strict_types=1);
 
-/**
- * include files
- */
-require_once 'libraries/common.inc.php';
-require_once 'libraries/server_common.inc.php';
+use PhpMyAdmin\Controllers\Server\ReplicationController;
+use PhpMyAdmin\DatabaseInterface;
+use PhpMyAdmin\ReplicationGui;
+use PhpMyAdmin\Response;
 
-require_once 'libraries/replication.inc.php';
-require_once 'libraries/replication_gui.lib.php';
+if (! defined('ROOT_PATH')) {
+    define('ROOT_PATH', __DIR__ . DIRECTORY_SEPARATOR);
+}
 
-/**
- * Does the common work
- */
-$response = Response::getInstance();
-$header   = $response->getHeader();
-$scripts  = $header->getScripts();
-$scripts->addFile('server_privileges.js');
+require_once ROOT_PATH . 'libraries/common.inc.php';
+require_once ROOT_PATH . 'libraries/server_common.inc.php';
+require_once ROOT_PATH . 'libraries/replication.inc.php';
+
+/** @var Response $response */
+$response = $containerBuilder->get(Response::class);
+
+/** @var DatabaseInterface $dbi */
+$dbi = $containerBuilder->get(DatabaseInterface::class);
+
+/** @var ReplicationController $controller */
+$controller = $containerBuilder->get(ReplicationController::class);
+
+/** @var ReplicationGui $replicationGui */
+$replicationGui = $containerBuilder->get('replication_gui');
+
+$header = $response->getHeader();
+$scripts = $header->getScripts();
+$scripts->addFile('server/privileges.js');
 $scripts->addFile('replication.js');
+$scripts->addFile('vendor/zxcvbn.js');
 
-/**
- * Checks if the user is allowed to do what he tries to...
- */
-if (! $is_superuser) {
-    $html  = PMA_getHtmlForSubPageHeader('replication');
-    $html .= PMA\libraries\Message::error(__('No Privileges'))->getDisplay();
-    $response->addHTML($html);
-    exit;
+if (isset($_POST['url_params']) && is_array($_POST['url_params'])) {
+    $GLOBALS['url_params'] = $_POST['url_params'];
 }
 
-// change $GLOBALS['url_params'] with $_REQUEST['url_params']
-// only if it is an array
-if (isset($_REQUEST['url_params']) && is_array($_REQUEST['url_params'])) {
-    $GLOBALS['url_params'] = $_REQUEST['url_params'];
+if ($dbi->isSuperuser()) {
+    $replicationGui->handleControlRequest();
 }
 
-/**
- * Handling control requests
- */
-PMA_handleControlRequest();
-
-/**
- * start output
- */
-$response->addHTML('<div id="replication">');
-$response->addHTML(PMA_getHtmlForSubPageHeader('replication'));
-
-// Display error messages
-$response->addHTML(PMA_getHtmlForErrorMessage());
-
-if ($GLOBALS['replication_info']['master']['status']) {
-    $response->addHTML(PMA_getHtmlForMasterReplication());
-} elseif (! isset($_REQUEST['mr_configure'])
-    && ! isset($_REQUEST['repl_clear_scr'])
-) {
-    $response->addHTML(PMA_getHtmlForNotServerReplication());
-}
-
-if (isset($_REQUEST['mr_configure'])) {
-    // Render the 'Master configuration' section
-    $response->addHTML(PMA_getHtmlForMasterConfiguration());
-    exit;
-}
-
-$response->addHTML('</div>');
-
-if (! isset($_REQUEST['repl_clear_scr'])) {
-    // Render the 'Slave configuration' section
-    $response->addHTML(
-        PMA_getHtmlForSlaveConfiguration(
-            $GLOBALS['replication_info']['slave']['status'],
-            $server_slave_replication
-        )
-    );
-}
-if (isset($_REQUEST['sl_configure'])) {
-    $response->addHTML(PMA_getHtmlForReplicationChangeMaster("slave_changemaster"));
-}
+$response->addHTML(
+    $controller->index(
+        [
+            'mr_configure' => $_POST['mr_configure'] ?? null,
+            'sl_configure' => $_POST['sl_configure'] ?? null,
+            'repl_clear_scr' => $_POST['repl_clear_scr'] ?? null,
+        ],
+        $replicationGui
+    )
+);

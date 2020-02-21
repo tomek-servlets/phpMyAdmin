@@ -5,10 +5,12 @@
  * @package phpMyAdmin-Console
  */
 
+/* global debugSQLInfo */ // libraries/classes/Footer.php
+
 /**
  * Console object
  */
-var PMA_console = {
+var Console = {
     /**
      * @var object, jQuery object, selector is '#pma_console>.content'
      * @access private
@@ -55,173 +57,156 @@ var PMA_console = {
      *
      * @return void
      */
-    initialize: function() {
-
+    initialize: function () {
         if ($('#pma_console').length === 0) {
             return;
         }
 
-        PMA_console.isEnabled = true;
+        Console.config = Functions.configGet('Console', false);
 
-        // Cookie var checks and init
-        if (! $.cookie('pma_console_height')) {
-            $.cookie('pma_console_height', 92);
-        }
-        if (! $.cookie('pma_console_mode')) {
-            $.cookie('pma_console_mode', 'info');
-        }
+        Console.isEnabled = true;
 
         // Vars init
-        PMA_console.$consoleToolbar = $("#pma_console").find(">.toolbar");
-        PMA_console.$consoleContent = $("#pma_console").find(">.content");
-        PMA_console.$consoleAllContents = $('#pma_console').find('.content');
-        PMA_console.$consoleTemplates = $('#pma_console').find('>.templates');
+        Console.$consoleToolbar = $('#pma_console').find('>.toolbar');
+        Console.$consoleContent = $('#pma_console').find('>.content');
+        Console.$consoleAllContents = $('#pma_console').find('.content');
+        Console.$consoleTemplates = $('#pma_console').find('>.templates');
 
         // Generate a from for post
-        PMA_console.$requestForm = $('<form method="post" action="import.php">' +
+        Console.$requestForm = $('<form method="post" action="import.php">' +
             '<input name="is_js_confirmed" value="0">' +
             '<textarea name="sql_query"></textarea>' +
             '<input name="console_message_id" value="0">' +
             '<input name="server" value="">' +
             '<input name="db" value="">' +
             '<input name="table" value="">' +
-            '<input name="token" value="' +
-            PMA_commonParams.get('token') +
-            '">' +
+            '<input name="token" value="">' +
             '</form>'
         );
-        PMA_console.$requestForm.bind('submit', AJAX.requestHandler);
+        Console.$requestForm.children('[name=token]').val(CommonParams.get('token'));
+        Console.$requestForm.on('submit', AJAX.requestHandler);
 
         // Event binds shouldn't run again
-        if (PMA_console.isInitialized === false) {
-
+        if (Console.isInitialized === false) {
             // Load config first
-            var tempConfig = JSON.parse($.cookie('pma_console_config'));
-            if (tempConfig) {
-                if (tempConfig.alwaysExpand === true) {
-                    $('#pma_console_options input[name=always_expand]').prop('checked', true);
-                }
-                if (tempConfig.startHistory === true) {
-                    $('#pma_console_options').find('input[name=start_history]').prop('checked', true);
-                }
-                if (tempConfig.currentQuery === true) {
-                    $('#pma_console_options').find('input[name=current_query]').prop('checked', true);
-                }
-                if (ConsoleEnterExecutes === true) {
-                    $('#pma_console_options').find('input[name=enter_executes]').prop('checked', true);
-                }
-                if (tempConfig.darkTheme === true) {
-                    $('#pma_console_options').find('input[name=dark_theme]').prop('checked', true);
-                    $('#pma_console').find('>.content').addClass('console_dark_theme');
-                }
-            } else {
+            if (Console.config.AlwaysExpand === true) {
+                $('#pma_console_options input[name=always_expand]').prop('checked', true);
+            }
+            if (Console.config.StartHistory === true) {
+                $('#pma_console_options').find('input[name=start_history]').prop('checked', true);
+            }
+            if (Console.config.CurrentQuery === true) {
                 $('#pma_console_options').find('input[name=current_query]').prop('checked', true);
             }
+            if (Console.config.EnterExecutes === true) {
+                $('#pma_console_options').find('input[name=enter_executes]').prop('checked', true);
+            }
+            if (Console.config.DarkTheme === true) {
+                $('#pma_console_options').find('input[name=dark_theme]').prop('checked', true);
+                $('#pma_console').find('>.content').addClass('console_dark_theme');
+            }
 
-            PMA_console.updateConfig();
+            ConsoleResizer.initialize();
+            ConsoleInput.initialize();
+            ConsoleMessages.initialize();
+            ConsoleBookmarks.initialize();
+            ConsoleDebug.initialize();
 
-            PMA_consoleResizer.initialize();
-            PMA_consoleInput.initialize();
-            PMA_consoleMessages.initialize();
-            PMA_consoleBookmarks.initialize();
-            PMA_consoleDebug.initialize();
+            Console.$consoleToolbar.children('.console_switch').on('click', Console.toggle);
 
-            PMA_console.$consoleToolbar.children('.console_switch').click(PMA_console.toggle);
-
-            $('#pma_console').find('.toolbar').children().mousedown(function(event) {
+            $('#pma_console').find('.toolbar').children().on('mousedown', function (event) {
                 event.preventDefault();
                 event.stopImmediatePropagation();
             });
 
-            $('#pma_console').find('.button.clear').click(function() {
-                PMA_consoleMessages.clear();
+            $('#pma_console').find('.button.clear').on('click', function () {
+                ConsoleMessages.clear();
             });
 
-            $('#pma_console').find('.button.history').click(function() {
-                PMA_consoleMessages.showHistory();
+            $('#pma_console').find('.button.history').on('click', function () {
+                ConsoleMessages.showHistory();
             });
 
-            $('#pma_console').find('.button.options').click(function() {
-                PMA_console.showCard('#pma_console_options');
+            $('#pma_console').find('.button.options').on('click', function () {
+                Console.showCard('#pma_console_options');
             });
 
-            $('#pma_console').find('.button.debug').click(function() {
-                PMA_console.showCard('#debug_console');
+            $('#pma_console').find('.button.debug').on('click', function () {
+                Console.showCard('#debug_console');
             });
 
-            PMA_console.$consoleContent.click(function(event) {
-                if (event.target == this) {
-                    PMA_consoleInput.focus();
+            Console.$consoleContent.on('click', function (event) {
+                if (event.target === this) {
+                    ConsoleInput.focus();
                 }
             });
 
-            $('#pma_console').find('.mid_layer').click(function() {
-                PMA_console.hideCard($(this).parent().children('.card'));
+            $('#pma_console').find('.mid_layer').on('click', function () {
+                Console.hideCard($(this).parent().children('.card'));
             });
-            $('#debug_console').find('.switch_button').click(function() {
-                PMA_console.hideCard($(this).closest('.card'));
+            $('#debug_console').find('.switch_button').on('click', function () {
+                Console.hideCard($(this).closest('.card'));
             });
-            $('#pma_bookmarks').find('.switch_button').click(function() {
-                PMA_console.hideCard($(this).closest('.card'));
+            $('#pma_bookmarks').find('.switch_button').on('click', function () {
+                Console.hideCard($(this).closest('.card'));
             });
-            $('#pma_console_options').find('.switch_button').click(function() {
-                PMA_console.hideCard($(this).closest('.card'));
-            });
-
-            $('#pma_console_options').find('input[type=checkbox]').change(function() {
-                PMA_console.updateConfig();
+            $('#pma_console_options').find('.switch_button').on('click', function () {
+                Console.hideCard($(this).closest('.card'));
             });
 
-            $('#pma_console_options').find('.button.default').click(function() {
+            $('#pma_console_options').find('input[type=checkbox]').on('change', function () {
+                Console.updateConfig();
+            });
+
+            $('#pma_console_options').find('.button.default').on('click', function () {
                 $('#pma_console_options input[name=always_expand]').prop('checked', false);
                 $('#pma_console_options').find('input[name=start_history]').prop('checked', false);
                 $('#pma_console_options').find('input[name=current_query]').prop('checked', true);
                 $('#pma_console_options').find('input[name=enter_executes]').prop('checked', false);
                 $('#pma_console_options').find('input[name=dark_theme]').prop('checked', false);
-                PMA_console.updateConfig();
+                Console.updateConfig();
             });
 
-            $('#pma_console_options').find('input[name=enter_executes]').change(function() {
-                PMA_consoleMessages.showInstructions(PMA_console.config.enterExecutes);
+            $('#pma_console_options').find('input[name=enter_executes]').on('change', function () {
+                ConsoleMessages.showInstructions(Console.config.EnterExecutes);
             });
 
             $(document).ajaxComplete(function (event, xhr, ajaxOptions) {
-                if (ajaxOptions.dataType && ajaxOptions.dataType.indexOf('json') != -1) {
+                if (ajaxOptions.dataType && ajaxOptions.dataType.indexOf('json') !== -1) {
+                    return;
+                }
+                if (xhr.status !== 200) {
                     return;
                 }
                 try {
                     var data = JSON.parse(xhr.responseText);
-                    PMA_console.ajaxCallback(data);
+                    Console.ajaxCallback(data);
                 } catch (e) {
+                    // eslint-disable-next-line no-console
                     console.trace();
-                    console.log("Invalid JSON!" + e.message);
-                    if (AJAX.xhr && AJAX.xhr.status === 0 && AJAX.xhr.statusText !== 'abort') {
-                        PMA_ajaxShowMessage($('<div />',{'class':'error','html':PMA_messages.strRequestFailed+' ( '+escapeHtml(AJAX.xhr.statusText)+' )'}));
-                        AJAX.active = false;
-                        AJAX.xhr = null;
-                    }
+                    // eslint-disable-next-line no-console
+                    console.log('Failed to parse JSON: ' + e.message);
                 }
             });
 
-            PMA_console.isInitialized = true;
+            Console.isInitialized = true;
         }
 
         // Change console mode from cookie
-        switch($.cookie('pma_console_mode')) {
-            case 'collapse':
-                PMA_console.collapse();
-                break;
-            /* jshint -W086 */// no break needed in default section
-            default:
-                $.cookie('pma_console_mode', 'info');
-            case 'info':
-            /* jshint +W086 */
-                PMA_console.info();
-                break;
-            case 'show':
-                PMA_console.show(true);
-                PMA_console.scrollBottom();
-                break;
+        switch (Console.config.Mode) {
+        case 'collapse':
+            Console.collapse();
+            break;
+        case 'info':
+            Console.info();
+            break;
+        case 'show':
+            Console.show(true);
+            Console.scrollBottom();
+            break;
+        default:
+            Console.setConfig('Mode', 'info');
+            Console.info();
         }
     },
     /**
@@ -229,44 +214,44 @@ var PMA_console = {
      *
      * @return void
      */
-    execute: function(queryString, options) {
-        if (typeof(queryString) != 'string' || ! /[a-z]|[A-Z]/.test(queryString)) {
+    execute: function (queryString, options) {
+        if (typeof(queryString) !== 'string' || ! /[a-z]|[A-Z]/.test(queryString)) {
             return;
         }
-        PMA_console.$requestForm.children('textarea').val(queryString);
-        PMA_console.$requestForm.children('[name=server]').attr('value', PMA_commonParams.get('server'));
+        Console.$requestForm.children('textarea').val(queryString);
+        Console.$requestForm.children('[name=server]').attr('value', CommonParams.get('server'));
         if (options && options.db) {
-            PMA_console.$requestForm.children('[name=db]').val(options.db);
+            Console.$requestForm.children('[name=db]').val(options.db);
             if (options.table) {
-                PMA_console.$requestForm.children('[name=table]').val(options.table);
+                Console.$requestForm.children('[name=table]').val(options.table);
             } else {
-                PMA_console.$requestForm.children('[name=table]').val('');
+                Console.$requestForm.children('[name=table]').val('');
             }
         } else {
-            PMA_console.$requestForm.children('[name=db]').val(
-                (PMA_commonParams.get('db').length > 0 ? PMA_commonParams.get('db') : ''));
+            Console.$requestForm.children('[name=db]').val(
+                (CommonParams.get('db').length > 0 ? CommonParams.get('db') : ''));
         }
-        PMA_console.$requestForm.find('[name=profiling]').remove();
+        Console.$requestForm.find('[name=profiling]').remove();
         if (options && options.profiling === true) {
-            PMA_console.$requestForm.append('<input name="profiling" value="on">');
+            Console.$requestForm.append('<input name="profiling" value="on">');
         }
-        if (! confirmQuery(PMA_console.$requestForm[0], PMA_console.$requestForm.children('textarea')[0].value)) {
+        if (! Functions.confirmQuery(Console.$requestForm[0], Console.$requestForm.children('textarea')[0].value)) {
             return;
         }
-        PMA_console.$requestForm.children('[name=console_message_id]')
-            .val(PMA_consoleMessages.appendQuery({sql_query: queryString}).message_id);
-        PMA_console.$requestForm.trigger('submit');
-        PMA_consoleInput.clear();
-        PMA_reloadNavigation();
+        Console.$requestForm.children('[name=console_message_id]')
+            .val(ConsoleMessages.appendQuery({ 'sql_query': queryString }).message_id);
+        Console.$requestForm.trigger('submit');
+        ConsoleInput.clear();
+        Navigation.reload();
     },
-    ajaxCallback: function(data) {
+    ajaxCallback: function (data) {
         if (data && data.console_message_id) {
-            PMA_consoleMessages.updateQuery(data.console_message_id, data.success,
-                (data._reloadQuerywindow ? data._reloadQuerywindow : false));
-        } else if ( data && data._reloadQuerywindow) {
-            if (data._reloadQuerywindow.sql_query.length > 0) {
-                PMA_consoleMessages.appendQuery(data._reloadQuerywindow, 'successed')
-                    .$message.addClass(PMA_console.config.currentQuery ? '' : 'hide');
+            ConsoleMessages.updateQuery(data.console_message_id, data.success,
+                (data.reloadQuerywindow ? data.reloadQuerywindow : false));
+        } else if (data && data.reloadQuerywindow) {
+            if (data.reloadQuerywindow.sql_query.length > 0) {
+                ConsoleMessages.appendQuery(data.reloadQuerywindow, 'successed')
+                    .$message.addClass(Console.config.CurrentQuery ? '' : 'hide');
             }
         }
     },
@@ -275,22 +260,19 @@ var PMA_console = {
      *
      * @return void
      */
-    collapse: function() {
-        $.cookie('pma_console_mode', 'collapse');
-        var pmaConsoleHeight = $.cookie('pma_console_height');
+    collapse: function () {
+        Console.setConfig('Mode', 'collapse');
+        var pmaConsoleHeight = Math.max(92, Console.config.Height);
 
-        if (pmaConsoleHeight < 32) {
-            $.cookie('pma_console_height', 92);
-        }
-        PMA_console.$consoleToolbar.addClass('collapsed');
-        PMA_console.$consoleAllContents.height(pmaConsoleHeight);
-        PMA_console.$consoleContent.stop();
-        PMA_console.$consoleContent.animate({'margin-bottom': -1 * PMA_console.$consoleContent.outerHeight() + 'px'},
-            'fast', 'easeOutQuart', function() {
-                PMA_console.$consoleContent.css({display:'none'});
+        Console.$consoleToolbar.addClass('collapsed');
+        Console.$consoleAllContents.height(pmaConsoleHeight);
+        Console.$consoleContent.stop();
+        Console.$consoleContent.animate({ 'margin-bottom': -1 * Console.$consoleContent.outerHeight() + 'px' },
+            'fast', 'easeOutQuart', function () {
+                Console.$consoleContent.css({ display:'none' });
                 $(window).trigger('resize');
             });
-        PMA_console.hideCard();
+        Console.hideCard();
     },
     /**
      * Show console
@@ -298,27 +280,22 @@ var PMA_console = {
      * @param bool inputFocus If true, focus the input line after show()
      * @return void
      */
-    show: function(inputFocus) {
-        $.cookie('pma_console_mode', 'show');
+    show: function (inputFocus) {
+        Console.setConfig('Mode', 'show');
 
-        var pmaConsoleHeight = $.cookie('pma_console_height');
-
-        if (pmaConsoleHeight < 32) {
-            $.cookie('pma_console_height', 32);
-            PMA_console.collapse();
-            return;
+        var pmaConsoleHeight = Math.max(92, Console.config.Height);
+        pmaConsoleHeight = Math.min(Console.config.Height, (window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight) - 25);
+        Console.$consoleContent.css({ display:'block' });
+        if (Console.$consoleToolbar.hasClass('collapsed')) {
+            Console.$consoleToolbar.removeClass('collapsed');
         }
-        PMA_console.$consoleContent.css({display:'block'});
-        if (PMA_console.$consoleToolbar.hasClass('collapsed')) {
-            PMA_console.$consoleToolbar.removeClass('collapsed');
-        }
-        PMA_console.$consoleAllContents.height(pmaConsoleHeight);
-        PMA_console.$consoleContent.stop();
-        PMA_console.$consoleContent.animate({'margin-bottom': 0},
-            'fast', 'easeOutQuart', function() {
+        Console.$consoleAllContents.height(pmaConsoleHeight);
+        Console.$consoleContent.stop();
+        Console.$consoleContent.animate({ 'margin-bottom': 0 },
+            'fast', 'easeOutQuart', function () {
                 $(window).trigger('resize');
                 if (inputFocus) {
-                    PMA_consoleInput.focus();
+                    ConsoleInput.focus();
                 }
             });
     },
@@ -329,9 +306,9 @@ var PMA_console = {
      *
      * @return void
      */
-    info: function() {
+    info: function () {
         // Under construction
-        PMA_console.collapse();
+        Console.collapse();
     },
     /**
      * Toggle console mode between collapse/show
@@ -339,17 +316,15 @@ var PMA_console = {
      *
      * @return void
      */
-    toggle: function() {
-        switch($.cookie('pma_console_mode')) {
-            case 'collapse':
-            case 'info':
-                PMA_console.show(true);
-                break;
-            case 'show':
-                PMA_console.collapse();
-                break;
-            default:
-                PMA_consoleInitialize();
+    toggle: function () {
+        switch (Console.config.Mode) {
+        case 'collapse':
+        case 'info':
+            Console.show(true);
+            break;
+        case 'show':
+            Console.collapse();
+            break;
         }
     },
     /**
@@ -357,8 +332,8 @@ var PMA_console = {
      *
      * @return void
      */
-    scrollBottom: function() {
-        PMA_console.$consoleContent.scrollTop(PMA_console.$consoleContent.prop("scrollHeight"));
+    scrollBottom: function () {
+        Console.$consoleContent.scrollTop(Console.$consoleContent.prop('scrollHeight'));
     },
     /**
      * Show card
@@ -368,7 +343,7 @@ var PMA_console = {
      *
      * @return void
      */
-    showCard: function(cardSelector) {
+    showCard: function (cardSelector) {
         var $card = null;
         if (typeof(cardSelector) !== 'string') {
             if (cardSelector.length > 0) {
@@ -377,16 +352,16 @@ var PMA_console = {
                 return;
             }
         } else {
-            $card = $("#pma_console " + cardSelector);
+            $card = $('#pma_console ' + cardSelector);
         }
         if ($card.length === 0) {
             return;
         }
         $card.parent().children('.mid_layer').show().fadeTo(0, 0.15);
         $card.addClass('show');
-        PMA_consoleInput.blur();
+        ConsoleInput.blur();
         if ($card.parents('.card').length > 0) {
-            PMA_console.showCard($card.parents('.card'));
+            Console.showCard($card.parents('.card'));
         }
     },
     /**
@@ -395,7 +370,7 @@ var PMA_console = {
      * @param object $targetCard Target card JQuery object, if it's empty, function will hide all cards
      * @return void
      */
-    hideCard: function($targetCard) {
+    hideCard: function ($targetCard) {
         if (! $targetCard) {
             $('#pma_console').find('.mid_layer').fadeOut(140);
             $('#pma_console').find('.card').removeClass('show');
@@ -410,76 +385,78 @@ var PMA_console = {
      *
      * @return void
      */
-    updateConfig: function() {
-        PMA_console.config = {
-            alwaysExpand: $('#pma_console_options input[name=always_expand]').prop('checked'),
-            startHistory: $('#pma_console_options').find('input[name=start_history]').prop('checked'),
-            currentQuery: $('#pma_console_options').find('input[name=current_query]').prop('checked'),
-            enterExecutes: $('#pma_console_options').find('input[name=enter_executes]').prop('checked'),
-            darkTheme: $('#pma_console_options').find('input[name=dark_theme]').prop('checked')
-        };
-        $.cookie('pma_console_config', JSON.stringify(PMA_console.config));
-        /*Setting the dark theme of the console*/
-        if (PMA_console.config.darkTheme) {
+    updateConfig: function () {
+        Console.setConfig('AlwaysExpand', $('#pma_console_options input[name=always_expand]').prop('checked'));
+        Console.setConfig('StartHistory', $('#pma_console_options').find('input[name=start_history]').prop('checked'));
+        Console.setConfig('CurrentQuery', $('#pma_console_options').find('input[name=current_query]').prop('checked'));
+        Console.setConfig('EnterExecutes', $('#pma_console_options').find('input[name=enter_executes]').prop('checked'));
+        Console.setConfig('DarkTheme', $('#pma_console_options').find('input[name=dark_theme]').prop('checked'));
+        /* Setting the dark theme of the console*/
+        if (Console.config.DarkTheme) {
             $('#pma_console').find('>.content').addClass('console_dark_theme');
         } else {
             $('#pma_console').find('>.content').removeClass('console_dark_theme');
         }
     },
+    setConfig: function (key, value) {
+        Console.config[key] = value;
+        Functions.configSet('Console/' + key, value);
+    },
     isSelect: function (queryString) {
-        var reg_exp = /^SELECT\s+/i;
-        return reg_exp.test(queryString);
+        var regExp = /^SELECT\s+/i;
+        return regExp.test(queryString);
     }
 };
 
 /**
  * Resizer object
- * Careful: this object UI logics highly related with functions under PMA_console
+ * Careful: this object UI logics highly related with functions under Console
  * Resizing min-height is 32, if small than it, console will collapse
  */
-var PMA_consoleResizer = {
-    _posY: 0,
-    _height: 0,
-    _resultHeight: 0,
+var ConsoleResizer = {
+    posY: 0,
+    height: 0,
+    resultHeight: 0,
     /**
      * Mousedown event handler for bind to resizer
      *
      * @return void
      */
-    _mousedown: function(event) {
-        if ($.cookie('pma_console_mode') !== 'show') {
+    mouseDown: function (event) {
+        if (Console.config.Mode !== 'show') {
             return;
         }
-        PMA_consoleResizer._posY = event.pageY;
-        PMA_consoleResizer._height = PMA_console.$consoleContent.height();
-        $(document).mousemove(PMA_consoleResizer._mousemove);
-        $(document).mouseup(PMA_consoleResizer._mouseup);
+        ConsoleResizer.posY = event.pageY;
+        ConsoleResizer.height = Console.$consoleContent.height();
+        $(document).on('mousemove', ConsoleResizer.mouseMove);
+        $(document).on('mouseup', ConsoleResizer.mouseUp);
         // Disable text selection while resizing
-        $(document).bind('selectstart', function() { return false; });
+        $(document).on('selectstart', function () {
+            return false;
+        });
     },
     /**
      * Mousemove event handler for bind to resizer
      *
      * @return void
      */
-    _mousemove: function(event) {
+    mouseMove: function (event) {
         if (event.pageY < 35) {
-            event.pageY = 35
+            event.pageY = 35;
         }
-        PMA_consoleResizer._resultHeight = PMA_consoleResizer._height + (PMA_consoleResizer._posY -event.pageY);
+        ConsoleResizer.resultHeight = ConsoleResizer.height + (ConsoleResizer.posY - event.pageY);
         // Content min-height is 32, if adjusting height small than it we'll move it out of the page
-        if (PMA_consoleResizer._resultHeight <= 32) {
-            PMA_console.$consoleAllContents.height(32);
-            PMA_console.$consoleContent.css('margin-bottom', PMA_consoleResizer._resultHeight - 32);
-        }
-        else {
+        if (ConsoleResizer.resultHeight <= 32) {
+            Console.$consoleAllContents.height(32);
+            Console.$consoleContent.css('margin-bottom', ConsoleResizer.resultHeight - 32);
+        } else {
             // Logic below makes viewable area always at bottom when adjusting height and content already at bottom
-            if (PMA_console.$consoleContent.scrollTop() + PMA_console.$consoleContent.innerHeight() + 16
-                >= PMA_console.$consoleContent.prop('scrollHeight')) {
-                PMA_console.$consoleAllContents.height(PMA_consoleResizer._resultHeight);
-                PMA_console.scrollBottom();
+            if (Console.$consoleContent.scrollTop() + Console.$consoleContent.innerHeight() + 16
+                >= Console.$consoleContent.prop('scrollHeight')) {
+                Console.$consoleAllContents.height(ConsoleResizer.resultHeight);
+                Console.scrollBottom();
             } else {
-                PMA_console.$consoleAllContents.height(PMA_consoleResizer._resultHeight);
+                Console.$consoleAllContents.height(ConsoleResizer.resultHeight);
             }
         }
     },
@@ -488,153 +465,154 @@ var PMA_consoleResizer = {
      *
      * @return void
      */
-    _mouseup: function() {
-        $.cookie('pma_console_height', PMA_consoleResizer._resultHeight);
-        PMA_console.show();
-        $(document).unbind('mousemove');
-        $(document).unbind('mouseup');
-        $(document).unbind('selectstart');
+    mouseUp: function () {
+        Console.setConfig('Height', ConsoleResizer.resultHeight);
+        Console.show();
+        $(document).off('mousemove');
+        $(document).off('mouseup');
+        $(document).off('selectstart');
     },
     /**
      * Used for console resizer initialize
      *
      * @return void
      */
-    initialize: function() {
-        $('#pma_console').find('.toolbar').unbind('mousedown');
-        $('#pma_console').find('.toolbar').mousedown(PMA_consoleResizer._mousedown);
+    initialize: function () {
+        $('#pma_console').find('.toolbar').off('mousedown');
+        $('#pma_console').find('.toolbar').on('mousedown', ConsoleResizer.mouseDown);
     }
 };
-
 
 /**
  * Console input object
  */
-var PMA_consoleInput = {
+var ConsoleInput = {
     /**
      * @var array, contains Codemirror objects or input jQuery objects
      * @access private
      */
-    _inputs: null,
+    inputs: null,
     /**
      * @var bool, if codemirror enabled
      * @access private
      */
-    _codemirror: false,
+    codeMirror: false,
     /**
      * @var int, count for history navigation, 0 for current input
      * @access private
      */
-    _historyCount: 0,
+    historyCount: 0,
     /**
      * @var string, current input when navigating through history
      * @access private
      */
-    _historyPreserveCurrent: null,
+    historyPreserveCurrent: null,
     /**
      * Used for console input initialize
      *
      * @return void
      */
-    initialize: function() {
+    initialize: function () {
         // _cm object can't be reinitialize
-        if (PMA_consoleInput._inputs !== null) {
+        if (ConsoleInput.inputs !== null) {
             return;
         }
         if (typeof CodeMirror !== 'undefined') {
-            PMA_consoleInput._codemirror = true;
+            ConsoleInput.codeMirror = true;
         }
-        PMA_consoleInput._inputs = [];
-        if (PMA_consoleInput._codemirror) {
-            PMA_consoleInput._inputs.console = CodeMirror($('#pma_console').find('.console_query_input')[0], {
+        ConsoleInput.inputs = [];
+        if (ConsoleInput.codeMirror) {
+            // eslint-disable-next-line new-cap
+            ConsoleInput.inputs.console = CodeMirror($('#pma_console').find('.console_query_input')[0], {
                 theme: 'pma',
                 mode: 'text/x-sql',
                 lineWrapping: true,
-                extraKeys: {"Ctrl-Space": "autocomplete"},
-                hintOptions: {"completeSingle": false, "completeOnSingleClick": true},
-                gutters: ["CodeMirror-lint-markers"],
+                extraKeys: { 'Ctrl-Space': 'autocomplete' },
+                hintOptions: { 'completeSingle': false, 'completeOnSingleClick': true },
+                gutters: ['CodeMirror-lint-markers'],
                 lint: {
-                    "getAnnotations": CodeMirror.sqlLint,
-                    "async": true,
+                    'getAnnotations': CodeMirror.sqlLint,
+                    'async': true,
                 }
             });
-            PMA_consoleInput._inputs.console.on("inputRead", codemirrorAutocompleteOnInputRead);
-            PMA_consoleInput._inputs.console.on("keydown", function(instance, event) {
-                PMA_consoleInput._historyNavigate(event);
+            ConsoleInput.inputs.console.on('inputRead', Functions.codeMirrorAutoCompleteOnInputRead);
+            ConsoleInput.inputs.console.on('keydown', function (instance, event) {
+                ConsoleInput.historyNavigate(event);
             });
             if ($('#pma_bookmarks').length !== 0) {
-                PMA_consoleInput._inputs.bookmark = CodeMirror($('#pma_console').find('.bookmark_add_input')[0], {
+                // eslint-disable-next-line new-cap
+                ConsoleInput.inputs.bookmark = CodeMirror($('#pma_console').find('.bookmark_add_input')[0], {
                     theme: 'pma',
                     mode: 'text/x-sql',
                     lineWrapping: true,
-                    extraKeys: {"Ctrl-Space": "autocomplete"},
-                    hintOptions: {"completeSingle": false, "completeOnSingleClick": true},
-                    gutters: ["CodeMirror-lint-markers"],
+                    extraKeys: { 'Ctrl-Space': 'autocomplete' },
+                    hintOptions: { 'completeSingle': false, 'completeOnSingleClick': true },
+                    gutters: ['CodeMirror-lint-markers'],
                     lint: {
-                        "getAnnotations": CodeMirror.sqlLint,
-                        "async": true,
+                        'getAnnotations': CodeMirror.sqlLint,
+                        'async': true,
                     }
                 });
-                PMA_consoleInput._inputs.bookmark.on("inputRead", codemirrorAutocompleteOnInputRead);
+                ConsoleInput.inputs.bookmark.on('inputRead', Functions.codeMirrorAutoCompleteOnInputRead);
             }
         } else {
-            PMA_consoleInput._inputs.console =
+            ConsoleInput.inputs.console =
                 $('<textarea>').appendTo('#pma_console .console_query_input')
-                    .on('keydown', PMA_consoleInput._historyNavigate);
+                    .on('keydown', ConsoleInput.historyNavigate);
             if ($('#pma_bookmarks').length !== 0) {
-                PMA_consoleInput._inputs.bookmark =
+                ConsoleInput.inputs.bookmark =
                     $('<textarea>').appendTo('#pma_console .bookmark_add_input');
             }
         }
-        $('#pma_console').find('.console_query_input').keydown(PMA_consoleInput._keydown);
+        $('#pma_console').find('.console_query_input').on('keydown', ConsoleInput.keyDown);
     },
-    _historyNavigate: function(event) {
-        if (event.keyCode == 38 || event.keyCode == 40) {
+    historyNavigate: function (event) {
+        if (event.keyCode === 38 || event.keyCode === 40) {
             var upPermitted = false;
             var downPermitted = false;
-            var editor = PMA_consoleInput._inputs.console;
+            var editor = ConsoleInput.inputs.console;
             var cursorLine;
             var totalLine;
-            if (PMA_consoleInput._codemirror) {
+            if (ConsoleInput.codeMirror) {
                 cursorLine = editor.getCursor().line;
                 totalLine = editor.lineCount();
             } else {
                 // Get cursor position from textarea
-                var text = PMA_consoleInput.getText();
-                cursorLine = text.substr(0, editor.prop("selectionStart")).split("\n").length - 1;
+                var text = ConsoleInput.getText();
+                cursorLine = text.substr(0, editor.prop('selectionStart')).split('\n').length - 1;
                 totalLine = text.split(/\r*\n/).length;
             }
             if (cursorLine === 0) {
                 upPermitted = true;
             }
-            if (cursorLine == totalLine - 1) {
+            if (cursorLine === totalLine - 1) {
                 downPermitted = true;
             }
             var nextCount;
             var queryString = false;
-            if (upPermitted && event.keyCode == 38) {
+            if (upPermitted && event.keyCode === 38) {
                 // Navigate up in history
-                if (PMA_consoleInput._historyCount === 0) {
-                    PMA_consoleInput._historyPreserveCurrent = PMA_consoleInput.getText();
+                if (ConsoleInput.historyCount === 0) {
+                    ConsoleInput.historyPreserveCurrent = ConsoleInput.getText();
                 }
-                nextCount = PMA_consoleInput._historyCount + 1;
-                queryString = PMA_consoleMessages.getHistory(nextCount);
-            } else if (downPermitted && event.keyCode == 40) {
+                nextCount = ConsoleInput.historyCount + 1;
+                queryString = ConsoleMessages.getHistory(nextCount);
+            } else if (downPermitted && event.keyCode === 40) {
                 // Navigate down in history
-                if (PMA_consoleInput._historyCount === 0) {
+                if (ConsoleInput.historyCount === 0) {
                     return;
                 }
-                nextCount = PMA_consoleInput._historyCount - 1;
+                nextCount = ConsoleInput.historyCount - 1;
                 if (nextCount === 0) {
-                    queryString = PMA_consoleInput._historyPreserveCurrent;
+                    queryString = ConsoleInput.historyPreserveCurrent;
                 } else {
-                    queryString = PMA_consoleMessages.getHistory(nextCount);
+                    queryString = ConsoleMessages.getHistory(nextCount);
                 }
             }
             if (queryString !== false) {
-                PMA_consoleInput._historyCount = nextCount;
-                PMA_consoleInput.setText(queryString, 'console');
-                if (PMA_consoleInput._codemirror) {
+                ConsoleInput.historyCount = nextCount;
+                ConsoleInput.setText(queryString, 'console');
+                if (ConsoleInput.codeMirror) {
                     editor.setCursor(editor.lineCount(), 0);
                 }
                 event.preventDefault();
@@ -648,29 +626,38 @@ var PMA_consoleInput = {
      *
      * @return void
      */
-    _keydown: function(event) {
-        if (PMA_console.config.enterExecutes) {
+    keyDown: function (event) {
+        // Execute command
+        if (Console.config.EnterExecutes) {
             // Enter, but not in combination with Shift (which writes a new line).
             if (!event.shiftKey && event.keyCode === 13) {
-                PMA_consoleInput.execute();
+                ConsoleInput.execute();
             }
         } else {
             // Ctrl+Enter
             if (event.ctrlKey && event.keyCode === 13) {
-                PMA_consoleInput.execute();
+                ConsoleInput.execute();
             }
+        }
+        // Clear line
+        if (event.ctrlKey && event.keyCode === 76) {
+            ConsoleInput.clear();
+        }
+        // Clear console
+        if (event.ctrlKey && event.keyCode === 85) {
+            ConsoleMessages.clear();
         }
     },
     /**
-     * Used for send text to PMA_console.execute()
+     * Used for send text to Console.execute()
      *
      * @return void
      */
-    execute: function() {
-        if (PMA_consoleInput._codemirror) {
-            PMA_console.execute(PMA_consoleInput._inputs.console.getValue());
+    execute: function () {
+        if (ConsoleInput.codeMirror) {
+            Console.execute(ConsoleInput.inputs.console.getValue());
         } else {
-            PMA_console.execute(PMA_consoleInput._inputs.console.val());
+            Console.execute(ConsoleInput.inputs.console.val());
         }
     },
     /**
@@ -679,27 +666,27 @@ var PMA_consoleInput = {
      * @param string target, default target is console input
      * @return void
      */
-    clear: function(target) {
-        PMA_consoleInput.setText('', target);
+    clear: function (target) {
+        ConsoleInput.setText('', target);
     },
     /**
      * Used for set focus to input
      *
      * @return void
      */
-    focus: function() {
-        PMA_consoleInput._inputs.console.focus();
+    focus: function () {
+        ConsoleInput.inputs.console.focus();
     },
     /**
      * Used for blur input
      *
      * @return void
      */
-    blur: function() {
-        if (PMA_consoleInput._codemirror) {
-            PMA_consoleInput._inputs.console.getInputField().blur();
+    blur: function () {
+        if (ConsoleInput.codeMirror) {
+            ConsoleInput.inputs.console.getInputField().blur();
         } else {
-            PMA_consoleInput._inputs.console.blur();
+            ConsoleInput.inputs.console.blur();
         }
     },
     /**
@@ -709,70 +696,69 @@ var PMA_consoleInput = {
      * @param string target
      * @return void
      */
-    setText: function(text, target) {
-        if (PMA_consoleInput._codemirror) {
-            switch(target) {
-                case 'bookmark':
-                    PMA_console.execute(PMA_consoleInput._inputs.bookmark.setValue(text));
-                    break;
-                default:
-                case 'console':
-                    PMA_console.execute(PMA_consoleInput._inputs.console.setValue(text));
+    setText: function (text, target) {
+        if (ConsoleInput.codeMirror) {
+            switch (target) {
+            case 'bookmark':
+                Console.execute(ConsoleInput.inputs.bookmark.setValue(text));
+                break;
+            default:
+            case 'console':
+                Console.execute(ConsoleInput.inputs.console.setValue(text));
             }
         } else {
-            switch(target) {
-                case 'bookmark':
-                    PMA_console.execute(PMA_consoleInput._inputs.bookmark.val(text));
-                    break;
-                default:
-                case 'console':
-                    PMA_console.execute(PMA_consoleInput._inputs.console.val(text));
+            switch (target) {
+            case 'bookmark':
+                Console.execute(ConsoleInput.inputs.bookmark.val(text));
+                break;
+            default:
+            case 'console':
+                Console.execute(ConsoleInput.inputs.console.val(text));
             }
         }
     },
-    getText: function(target) {
-        if (PMA_consoleInput._codemirror) {
-            switch(target) {
-                case 'bookmark':
-                    return PMA_consoleInput._inputs.bookmark.getValue();
-                default:
-                case 'console':
-                    return PMA_consoleInput._inputs.console.getValue();
+    getText: function (target) {
+        if (ConsoleInput.codeMirror) {
+            switch (target) {
+            case 'bookmark':
+                return ConsoleInput.inputs.bookmark.getValue();
+            default:
+            case 'console':
+                return ConsoleInput.inputs.console.getValue();
             }
         } else {
-            switch(target) {
-                case 'bookmark':
-                    return PMA_consoleInput._inputs.bookmark.val();
-                default:
-                case 'console':
-                    return PMA_consoleInput._inputs.console.val();
+            switch (target) {
+            case 'bookmark':
+                return ConsoleInput.inputs.bookmark.val();
+            default:
+            case 'console':
+                return ConsoleInput.inputs.console.val();
             }
         }
     }
 
 };
 
-
 /**
  * Console messages, and message items management object
  */
-var PMA_consoleMessages = {
+var ConsoleMessages = {
     /**
      * Used for clear the messages
      *
      * @return void
      */
-    clear: function() {
+    clear: function () {
         $('#pma_console').find('.content .console_message_container .message:not(.welcome)').addClass('hide');
         $('#pma_console').find('.content .console_message_container .message.failed').remove();
-        $('#pma_console').find('.content .console_message_container .message.expanded').find('.action.collapse').click();
+        $('#pma_console').find('.content .console_message_container .message.expanded').find('.action.collapse').trigger('click');
     },
     /**
      * Used for show history messages
      *
      * @return void
      */
-    showHistory: function() {
+    showHistory: function () {
         $('#pma_console').find('.content .console_message_container .message.hide').removeClass('hide');
     },
     /**
@@ -781,7 +767,7 @@ var PMA_consoleMessages = {
      * @param int nthLast get nth query message from latest, i.e 1st is last
      * @return string message
      */
-    getHistory: function(nthLast) {
+    getHistory: function (nthLast) {
         var $queries = $('#pma_console').find('.content .console_message_container .query');
         var length = $queries.length;
         var $query = $queries.eq(length - nthLast);
@@ -798,11 +784,11 @@ var PMA_consoleMessages = {
      * @param bool enterExecutes Only Enter has to be pressed to execute query.
      * @return void
      */
-    showInstructions: function(enterExecutes) {
-        enterExecutes = +enterExecutes || 0; // conversion to int
+    showInstructions: function (enterExecutes) {
+        var enter = +enterExecutes || 0; // conversion to int
         var $welcomeMsg = $('#pma_console').find('.content .console_message_container .message.welcome span');
         $welcomeMsg.children('[id^=instructions]').hide();
-        $welcomeMsg.children('#instructions-' + enterExecutes).show();
+        $welcomeMsg.children('#instructions-' + enter).show();
     },
     /**
      * Used for log new message
@@ -811,39 +797,41 @@ var PMA_consoleMessages = {
      * @param string msgType Message type
      * @return object, {message_id, $message}
      */
-    append: function(msgString, msgType) {
+    append: function (msgString, msgType) {
         if (typeof(msgString) !== 'string') {
             return false;
         }
         // Generate an ID for each message, we can find them later
-        var msgId = Math.round(Math.random()*(899999999999)+100000000000);
+        var msgId = Math.round(Math.random() * (899999999999) + 100000000000);
         var now = new Date();
         var $newMessage =
             $('<div class="message ' +
-                (PMA_console.config.alwaysExpand ? 'expanded' : 'collapsed') +
+                (Console.config.AlwaysExpand ? 'expanded' : 'collapsed') +
                 '" msgid="' + msgId + '"><div class="action_content"></div></div>');
-        switch(msgType) {
-            case 'query':
-                $newMessage.append('<div class="query highlighted"></div>');
-                if (PMA_consoleInput._codemirror) {
-                    CodeMirror.runMode(msgString,
-                        'text/x-sql', $newMessage.children('.query')[0]);
-                } else {
-                    $newMessage.children('.query').text(msgString);
-                }
-                $newMessage.children('.action_content')
-                    .append(PMA_console.$consoleTemplates.children('.query_actions').html());
-                break;
-            default:
-            case 'normal':
-                $newMessage.append('<div>' + msgString + '</div>');
+        switch (msgType) {
+        case 'query':
+            $newMessage.append('<div class="query highlighted"></div>');
+            if (ConsoleInput.codeMirror) {
+                CodeMirror.runMode(msgString,
+                    'text/x-sql', $newMessage.children('.query')[0]);
+            } else {
+                $newMessage.children('.query').text(msgString);
+            }
+            $newMessage.children('.action_content')
+                .append(Console.$consoleTemplates.children('.query_actions').html());
+            break;
+        default:
+        case 'normal':
+            $newMessage.append('<div>' + msgString + '</div>');
         }
-        PMA_consoleMessages._msgEventBinds($newMessage);
+        ConsoleMessages.messageEventBinds($newMessage);
         $newMessage.find('span.text.query_time span')
             .text(now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds())
             .parent().attr('title', now);
-        return {message_id: msgId,
-                $message: $newMessage.appendTo('#pma_console .content .console_message_container')};
+        return {
+            'message_id': msgId,
+            $message: $newMessage.appendTo('#pma_console .content .console_message_container')
+        };
     },
     /**
      * Used for log new query
@@ -853,8 +841,8 @@ var PMA_consoleMessages = {
      * @param string state Message state
      * @return object, {message_id: string message id, $message: JQuery object}
      */
-    appendQuery: function(queryData, state) {
-        var targetMessage = PMA_consoleMessages.append(queryData.sql_query, 'query');
+    appendQuery: function (queryData, state) {
+        var targetMessage = ConsoleMessages.append(queryData.sql_query, 'query');
         if (! targetMessage) {
             return false;
         }
@@ -863,137 +851,138 @@ var PMA_consoleMessages = {
             targetMessage.$message.attr('targettable', queryData.table);
             targetMessage.$message.find('.text.targetdb span').text(queryData.db);
         }
-        if (PMA_console.isSelect(queryData.sql_query)) {
+        if (Console.isSelect(queryData.sql_query)) {
             targetMessage.$message.addClass('select');
         }
-        switch(state) {
-            case 'failed':
-                targetMessage.$message.addClass('failed');
-                break;
-            case 'successed':
-                targetMessage.$message.addClass('successed');
-                break;
-            default:
-            case 'pending':
-                targetMessage.$message.addClass('pending');
+        switch (state) {
+        case 'failed':
+            targetMessage.$message.addClass('failed');
+            break;
+        case 'successed':
+            targetMessage.$message.addClass('successed');
+            break;
+        default:
+        case 'pending':
+            targetMessage.$message.addClass('pending');
         }
         return targetMessage;
     },
-    _msgEventBinds: function($targetMessage) {
+    messageEventBinds: function ($target) {
         // Leave unbinded elements, remove binded.
-        $targetMessage = $targetMessage.filter(':not(.binded)');
+        var $targetMessage = $target.filter(':not(.binded)');
         if ($targetMessage.length === 0) {
             return;
         }
         $targetMessage.addClass('binded');
 
-        $targetMessage.find('.action.expand').click(function () {
+        $targetMessage.find('.action.expand').on('click', function () {
             $(this).closest('.message').removeClass('collapsed');
             $(this).closest('.message').addClass('expanded');
         });
-        $targetMessage.find('.action.collapse').click(function () {
+        $targetMessage.find('.action.collapse').on('click', function () {
             $(this).closest('.message').addClass('collapsed');
             $(this).closest('.message').removeClass('expanded');
         });
-        $targetMessage.find('.action.edit').click(function () {
-            PMA_consoleInput.setText($(this).parent().siblings('.query').text());
-            PMA_consoleInput.focus();
+        $targetMessage.find('.action.edit').on('click', function () {
+            ConsoleInput.setText($(this).parent().siblings('.query').text());
+            ConsoleInput.focus();
         });
-        $targetMessage.find('.action.requery').click(function () {
+        $targetMessage.find('.action.requery').on('click', function () {
             var query = $(this).parent().siblings('.query').text();
             var $message = $(this).closest('.message');
-            if (confirm(PMA_messages.strConsoleRequeryConfirm + '\n' +
-                (query.length<100 ? query : query.slice(0, 100) + '...'))
+            if (confirm(Messages.strConsoleRequeryConfirm + '\n' +
+                (query.length < 100 ? query : query.slice(0, 100) + '...'))
             ) {
-                PMA_console.execute(query, {db: $message.attr('targetdb'), table: $message.attr('targettable')});
+                Console.execute(query, { db: $message.attr('targetdb'), table: $message.attr('targettable') });
             }
         });
-        $targetMessage.find('.action.bookmark').click(function () {
+        $targetMessage.find('.action.bookmark').on('click', function () {
             var query = $(this).parent().siblings('.query').text();
             var $message = $(this).closest('.message');
-            PMA_consoleBookmarks.addBookmark(query, $message.attr('targetdb'));
-            PMA_console.showCard('#pma_bookmarks .card.add');
+            ConsoleBookmarks.addBookmark(query, $message.attr('targetdb'));
+            Console.showCard('#pma_bookmarks .card.add');
         });
-        $targetMessage.find('.action.edit_bookmark').click(function () {
+        $targetMessage.find('.action.edit_bookmark').on('click', function () {
             var query = $(this).parent().siblings('.query').text();
             var $message = $(this).closest('.message');
             var isShared = $message.find('span.bookmark_label').hasClass('shared');
             var label = $message.find('span.bookmark_label').text();
-            PMA_consoleBookmarks.addBookmark(query, $message.attr('targetdb'), label, isShared);
-            PMA_console.showCard('#pma_bookmarks .card.add');
+            ConsoleBookmarks.addBookmark(query, $message.attr('targetdb'), label, isShared);
+            Console.showCard('#pma_bookmarks .card.add');
         });
-        $targetMessage.find('.action.delete_bookmark').click(function () {
+        $targetMessage.find('.action.delete_bookmark').on('click', function () {
             var $message = $(this).closest('.message');
-            if (confirm(PMA_messages.strConsoleDeleteBookmarkConfirm + '\n' + $message.find('.bookmark_label').text())) {
+            if (confirm(Messages.strConsoleDeleteBookmarkConfirm + '\n' + $message.find('.bookmark_label').text())) {
                 $.post('import.php',
-                    {token: PMA_commonParams.get('token'),
-                    server: PMA_commonParams.get('server'),
-                    action_bookmark: 2,
-                    ajax_request: true,
-                    id_bookmark: $message.attr('bookmarkid')},
+                    {
+                        'server': CommonParams.get('server'),
+                        'action_bookmark': 2,
+                        'ajax_request': true,
+                        'id_bookmark': $message.attr('bookmarkid')
+                    },
                     function () {
-                        PMA_consoleBookmarks.refresh();
+                        ConsoleBookmarks.refresh();
                     });
             }
         });
-        $targetMessage.find('.action.profiling').click(function () {
+        $targetMessage.find('.action.profiling').on('click', function () {
             var $message = $(this).closest('.message');
-            PMA_console.execute($(this).parent().siblings('.query').text(),
-                {db: $message.attr('targetdb'),
-                table: $message.attr('targettable'),
-                profiling: true});
+            Console.execute($(this).parent().siblings('.query').text(),
+                { db: $message.attr('targetdb'),
+                    table: $message.attr('targettable'),
+                    profiling: true });
         });
-        $targetMessage.find('.action.explain').click(function () {
+        $targetMessage.find('.action.explain').on('click', function () {
             var $message = $(this).closest('.message');
-            PMA_console.execute('EXPLAIN ' + $(this).parent().siblings('.query').text(),
-                {db: $message.attr('targetdb'),
-                table: $message.attr('targettable')});
+            Console.execute('EXPLAIN ' + $(this).parent().siblings('.query').text(),
+                { db: $message.attr('targetdb'),
+                    table: $message.attr('targettable') });
         });
-        $targetMessage.find('.action.dbg_show_trace').click(function () {
+        $targetMessage.find('.action.dbg_show_trace').on('click', function () {
             var $message = $(this).closest('.message');
             if (!$message.find('.trace').length) {
-                PMA_consoleDebug.getQueryDetails(
+                ConsoleDebug.getQueryDetails(
                     $message.data('queryInfo'),
                     $message.data('totalTime'),
                     $message
                 );
-                PMA_consoleMessages._msgEventBinds($message.find('.message:not(.binded)'));
+                ConsoleMessages.messageEventBinds($message.find('.message:not(.binded)'));
             }
             $message.addClass('show_trace');
             $message.removeClass('hide_trace');
         });
-        $targetMessage.find('.action.dbg_hide_trace').click(function () {
+        $targetMessage.find('.action.dbg_hide_trace').on('click', function () {
             var $message = $(this).closest('.message');
             $message.addClass('hide_trace');
             $message.removeClass('show_trace');
         });
-        $targetMessage.find('.action.dbg_show_args').click(function () {
+        $targetMessage.find('.action.dbg_show_args').on('click', function () {
             var $message = $(this).closest('.message');
             $message.addClass('show_args expanded');
             $message.removeClass('hide_args collapsed');
         });
-        $targetMessage.find('.action.dbg_hide_args').click(function () {
+        $targetMessage.find('.action.dbg_hide_args').on('click', function () {
             var $message = $(this).closest('.message');
             $message.addClass('hide_args collapsed');
             $message.removeClass('show_args expanded');
         });
-        if (PMA_consoleInput._codemirror) {
-            $targetMessage.find('.query:not(.highlighted)').each(function(index, elem) {
-                    CodeMirror.runMode($(elem).text(),
-                        'text/x-sql', elem);
-                    $(this).addClass('highlighted');
-                });
+        if (ConsoleInput.codeMirror) {
+            $targetMessage.find('.query:not(.highlighted)').each(function (index, elem) {
+                CodeMirror.runMode($(elem).text(),
+                    'text/x-sql', elem);
+                $(this).addClass('highlighted');
+            });
         }
     },
-    msgAppend: function(msgId, msgString, msgType) {
-        var $targetMessage = $('#pma_console').find('.content .console_message_container .message[msgid=' + msgId +']');
+    msgAppend: function (msgId, msgString) {
+        var $targetMessage = $('#pma_console').find('.content .console_message_container .message[msgid=' + msgId + ']');
         if ($targetMessage.length === 0 || isNaN(parseInt(msgId)) || typeof(msgString) !== 'string') {
             return false;
         }
         $targetMessage.append('<div>' + msgString + '</div>');
     },
-    updateQuery: function(msgId, isSuccessed, queryData) {
-        var $targetMessage = $('#pma_console').find('.console_message_container .message[msgid=' + parseInt(msgId) +']');
+    updateQuery: function (msgId, isSuccessed, queryData) {
+        var $targetMessage = $('#pma_console').find('.console_message_container .message[msgid=' + parseInt(msgId) + ']');
         if ($targetMessage.length === 0 || isNaN(parseInt(msgId))) {
             return false;
         }
@@ -1003,10 +992,10 @@ var PMA_consoleMessages = {
             if (queryData) {
                 $targetMessage.children('.query').text('');
                 $targetMessage.removeClass('select');
-                if (PMA_console.isSelect(queryData.sql_query)) {
+                if (Console.isSelect(queryData.sql_query)) {
                     $targetMessage.addClass('select');
                 }
-                if (PMA_consoleInput._codemirror) {
+                if (ConsoleInput.codeMirror) {
                     CodeMirror.runMode(queryData.sql_query, 'text/x-sql', $targetMessage.children('.query')[0]);
                 } else {
                     $targetMessage.children('.query').text(queryData.sql_query);
@@ -1024,206 +1013,183 @@ var PMA_consoleMessages = {
      *
      * @return void
      */
-    initialize: function() {
-        PMA_consoleMessages._msgEventBinds($('#pma_console').find('.message:not(.binded)'));
-        if (PMA_console.config.startHistory) {
-            PMA_consoleMessages.showHistory();
+    initialize: function () {
+        ConsoleMessages.messageEventBinds($('#pma_console').find('.message:not(.binded)'));
+        if (Console.config.StartHistory) {
+            ConsoleMessages.showHistory();
         }
-        PMA_consoleMessages.showInstructions(PMA_console.config.enterExecutes);
+        ConsoleMessages.showInstructions(Console.config.EnterExecutes);
     }
 };
-
 
 /**
  * Console bookmarks card, and bookmarks items management object
  */
-var PMA_consoleBookmarks = {
-    _bookmarks: [],
-    addBookmark: function (queryString, targetDb, label, isShared, id) {
+var ConsoleBookmarks = {
+    bookmarks: [],
+    addBookmark: function (queryString, targetDb, label, isShared) {
         $('#pma_bookmarks').find('.add [name=shared]').prop('checked', false);
         $('#pma_bookmarks').find('.add [name=label]').val('');
         $('#pma_bookmarks').find('.add [name=targetdb]').val('');
         $('#pma_bookmarks').find('.add [name=id_bookmark]').val('');
-        PMA_consoleInput.setText('', 'bookmark');
+        ConsoleInput.setText('', 'bookmark');
 
-        switch(arguments.length) {
-            case 4:
-                $('#pma_bookmarks').find('.add [name=shared]').prop('checked', isShared);
-            case 3:
-                $('#pma_bookmarks').find('.add [name=label]').val(label);
-            case 2:
-                $('#pma_bookmarks').find('.add [name=targetdb]').val(targetDb);
-            case 1:
-                PMA_consoleInput.setText(queryString, 'bookmark');
-            default:
-                break;
+        if (typeof queryString !== 'undefined') {
+            ConsoleInput.setText(queryString, 'bookmark');
+        }
+        if (typeof targetDb !== 'undefined') {
+            $('#pma_bookmarks').find('.add [name=targetdb]').val(targetDb);
+        }
+        if (typeof label !== 'undefined') {
+            $('#pma_bookmarks').find('.add [name=label]').val(label);
+        }
+        if (typeof isShared !== 'undefined') {
+            $('#pma_bookmarks').find('.add [name=shared]').prop('checked', isShared);
         }
     },
     refresh: function () {
         $.get('import.php',
-            {ajax_request: true,
-            token: PMA_commonParams.get('token'),
-            server: PMA_commonParams.get('server'),
-            console_bookmark_refresh: 'refresh'},
-            function(data) {
+            {
+                'ajax_request': true,
+                'server': CommonParams.get('server'),
+                'console_bookmark_refresh': 'refresh'
+            },
+            function (data) {
                 if (data.console_message_bookmark) {
                     $('#pma_bookmarks').find('.content.bookmark').html(data.console_message_bookmark);
-                    PMA_consoleMessages._msgEventBinds($('#pma_bookmarks').find('.message:not(.binded)'));
+                    ConsoleMessages.messageEventBinds($('#pma_bookmarks').find('.message:not(.binded)'));
                 }
             });
     },
     /**
      * Used for console bookmarks initialize
-     * message events are already binded by PMA_consoleMsg._msgEventBinds
+     * message events are already binded by ConsoleMsg.messageEventBinds
      *
      * @return void
      */
-    initialize: function() {
+    initialize: function () {
         if ($('#pma_bookmarks').length === 0) {
             return;
         }
-        $('#pma_console').find('.button.bookmarks').click(function() {
-            PMA_console.showCard('#pma_bookmarks');
+        $('#pma_console').find('.button.bookmarks').on('click', function () {
+            Console.showCard('#pma_bookmarks');
         });
-        $('#pma_bookmarks').find('.button.add').click(function() {
-            PMA_console.showCard('#pma_bookmarks .card.add');
+        $('#pma_bookmarks').find('.button.add').on('click', function () {
+            Console.showCard('#pma_bookmarks .card.add');
         });
-        $('#pma_bookmarks').find('.card.add [name=submit]').click(function () {
+        $('#pma_bookmarks').find('.card.add [name=submit]').on('click', function () {
             if ($('#pma_bookmarks').find('.card.add [name=label]').val().length === 0
-                || PMA_consoleInput.getText('bookmark').length === 0)
-            {
-                alert(PMA_messages.strFormEmpty);
+                || ConsoleInput.getText('bookmark').length === 0) {
+                alert(Messages.strFormEmpty);
                 return;
             }
             $(this).prop('disabled', true);
             $.post('import.php',
-                {token: PMA_commonParams.get('token'),
-                ajax_request: true,
-                console_bookmark_add: 'true',
-                label: $('#pma_bookmarks').find('.card.add [name=label]').val(),
-                server: PMA_commonParams.get('server'),
-                db: $('#pma_bookmarks').find('.card.add [name=targetdb]').val(),
-                bookmark_query: PMA_consoleInput.getText('bookmark'),
-                shared: $('#pma_bookmarks').find('.card.add [name=shared]').prop('checked')},
+                {
+                    'ajax_request': true,
+                    'console_bookmark_add': 'true',
+                    'label': $('#pma_bookmarks').find('.card.add [name=label]').val(),
+                    'server': CommonParams.get('server'),
+                    'db': $('#pma_bookmarks').find('.card.add [name=targetdb]').val(),
+                    'bookmark_query': ConsoleInput.getText('bookmark'),
+                    'shared': $('#pma_bookmarks').find('.card.add [name=shared]').prop('checked')
+                },
                 function () {
-                    PMA_consoleBookmarks.refresh();
+                    ConsoleBookmarks.refresh();
                     $('#pma_bookmarks').find('.card.add [name=submit]').prop('disabled', false);
-                    PMA_console.hideCard($('#pma_bookmarks').find('.card.add'));
+                    Console.hideCard($('#pma_bookmarks').find('.card.add'));
                 });
         });
-        $('#pma_console').find('.button.refresh').click(function() {
-            PMA_consoleBookmarks.refresh();
+        $('#pma_console').find('.button.refresh').on('click', function () {
+            ConsoleBookmarks.refresh();
         });
     }
 };
 
-var PMA_consoleDebug;
-PMA_consoleDebug = {
-    _config: {
+var ConsoleDebug = {
+    config: {
         groupQueries: false,
         orderBy: 'exec', // Possible 'exec' => Execution order, 'time' => Time taken, 'count'
         order: 'asc' // Possible 'asc', 'desc'
     },
-    _lastDebugInfo: {
+    lastDebugInfo: {
         debugInfo: null,
         url: null
     },
     initialize: function () {
         // Try to get debug info after every AJAX request
         $(document).ajaxSuccess(function (event, xhr, settings, data) {
-            if (data._debug) {
-                PMA_consoleDebug.showLog(data._debug, settings.url);
+            if (data.debug) {
+                ConsoleDebug.showLog(data.debug, settings.url);
             }
         });
 
-        // Initialize config
-        this._initConfig();
-
-        if (this.configParam('groupQueries')) {
+        if (Console.config.GroupQueries) {
             $('#debug_console').addClass('grouped');
         } else {
             $('#debug_console').addClass('ungrouped');
-            if (PMA_consoleDebug.configParam('orderBy') == 'count') {
+            if (Console.config.OrderBy === 'count') {
                 $('#debug_console').find('.button.order_by.sort_exec').addClass('active');
             }
         }
-        var orderBy = this.configParam('orderBy');
-        var order = this.configParam('order');
+        var orderBy = Console.config.OrderBy;
+        var order = Console.config.Order;
         $('#debug_console').find('.button.order_by.sort_' + orderBy).addClass('active');
         $('#debug_console').find('.button.order.order_' + order).addClass('active');
 
         // Initialize actions in toolbar
-        $('#debug_console').find('.button.group_queries').click(function () {
+        $('#debug_console').find('.button.group_queries').on('click', function () {
             $('#debug_console').addClass('grouped');
             $('#debug_console').removeClass('ungrouped');
-            PMA_consoleDebug.configParam('groupQueries', true);
-            PMA_consoleDebug.refresh();
-            if (PMA_consoleDebug.configParam('orderBy') == 'count') {
+            Console.setConfig('GroupQueries', true);
+            ConsoleDebug.refresh();
+            if (Console.config.OrderBy === 'count') {
                 $('#debug_console').find('.button.order_by.sort_exec').removeClass('active');
             }
         });
-        $('#debug_console').find('.button.ungroup_queries').click(function () {
+        $('#debug_console').find('.button.ungroup_queries').on('click', function () {
             $('#debug_console').addClass('ungrouped');
             $('#debug_console').removeClass('grouped');
-            PMA_consoleDebug.configParam('groupQueries', false);
-            PMA_consoleDebug.refresh();
-            if (PMA_consoleDebug.configParam('orderBy') == 'count') {
+            Console.setConfig('GroupQueries', false);
+            ConsoleDebug.refresh();
+            if (Console.config.OrderBy === 'count') {
                 $('#debug_console').find('.button.order_by.sort_exec').addClass('active');
             }
         });
-        $('#debug_console').find('.button.order_by').click(function () {
+        $('#debug_console').find('.button.order_by').on('click', function () {
             var $this = $(this);
             $('#debug_console').find('.button.order_by').removeClass('active');
             $this.addClass('active');
             if ($this.hasClass('sort_time')) {
-                PMA_consoleDebug.configParam('orderBy', 'time');
+                Console.setConfig('OrderBy', 'time');
             } else if ($this.hasClass('sort_exec')) {
-                PMA_consoleDebug.configParam('orderBy', 'exec');
+                Console.setConfig('OrderBy', 'exec');
             } else if ($this.hasClass('sort_count')) {
-                PMA_consoleDebug.configParam('orderBy', 'count');
+                Console.setConfig('OrderBy', 'count');
             }
-            PMA_consoleDebug.refresh();
+            ConsoleDebug.refresh();
         });
-        $('#debug_console').find('.button.order').click(function () {
+        $('#debug_console').find('.button.order').on('click', function () {
             var $this = $(this);
             $('#debug_console').find('.button.order').removeClass('active');
             $this.addClass('active');
             if ($this.hasClass('order_asc')) {
-                PMA_consoleDebug.configParam('order', 'asc');
+                Console.setConfig('Order', 'asc');
             } else if ($this.hasClass('order_desc')) {
-                PMA_consoleDebug.configParam('order', 'desc');
+                Console.setConfig('Order', 'desc');
             }
-            PMA_consoleDebug.refresh();
+            ConsoleDebug.refresh();
         });
 
         // Show SQL debug info for first page load
         if (typeof debugSQLInfo !== 'undefined' && debugSQLInfo !== 'null') {
             $('#pma_console').find('.button.debug').removeClass('hide');
-        }
-        else {
+        } else {
             return;
         }
-        PMA_consoleDebug.showLog(debugSQLInfo);
+        ConsoleDebug.showLog(debugSQLInfo);
     },
-    _initConfig: function () {
-        var config = JSON.parse($.cookie('pma_console_dbg_config'));
-        if (config) {
-            for (var name in config) {
-                if (config.hasOwnProperty(name)) {
-                    this._config[name] = config[name];
-                }
-            }
-        }
-    },
-    configParam: function (name, value) {
-        if (typeof value === 'undefined') {
-            return this._config[name];
-        }
-        this._config[name] = value;
-        $.cookie('pma_console_dbg_config', JSON.stringify(this._config));
-        return value;
-    },
-    _formatFunctionCall: function (dbgStep) {
+    formatFunctionCall: function (dbgStep) {
         var functionName = '';
         if ('class' in dbgStep) {
             functionName += dbgStep.class;
@@ -1237,33 +1203,33 @@ PMA_consoleDebug = {
         }
         return functionName;
     },
-    _formatFunctionArgs: function (dbgStep) {
+    formatFunctionArgs: function (dbgStep) {
         var $args = $('<div>');
         if (dbgStep.args.length) {
             $args.append('<div class="message welcome">')
                 .append(
-                $('<div class="message welcome">')
-                    .text(
-                    PMA_sprintf(
-                        PMA_messages.strConsoleDebugArgsSummary,
-                        dbgStep.args.length
-                    )
-                )
-            );
+                    $('<div class="message welcome">')
+                        .text(
+                            Functions.sprintf(
+                                Messages.strConsoleDebugArgsSummary,
+                                dbgStep.args.length
+                            )
+                        )
+                );
             for (var i = 0; i < dbgStep.args.length; i++) {
                 $args.append(
                     $('<div class="message">')
                         .html(
-                        '<pre>' +
-                        escapeHtml(JSON.stringify(dbgStep.args[i], null, "  ")) +
+                            '<pre>' +
+                        Functions.escapeHtml(JSON.stringify(dbgStep.args[i], null, '  ')) +
                         '</pre>'
-                    )
+                        )
                 );
             }
         }
         return $args;
     },
-    _formatFileName: function (dbgStep) {
+    formatFileName: function (dbgStep) {
         var fileName = '';
         if ('file' in dbgStep) {
             fileName += dbgStep.file;
@@ -1271,12 +1237,13 @@ PMA_consoleDebug = {
         }
         return fileName;
     },
-    _formatBackTrace: function (dbgTrace) {
+    formatBackTrace: function (dbgTrace) {
         var $traceElem = $('<div class="trace">');
         $traceElem.append(
             $('<div class="message welcome">')
         );
-        var step, $stepElem;
+        var step;
+        var $stepElem;
         for (var stepId in dbgTrace) {
             if (dbgTrace.hasOwnProperty(stepId)) {
                 step = dbgTrace[stepId];
@@ -1284,8 +1251,8 @@ PMA_consoleDebug = {
                     $stepElem =
                         $('<div class="message traceStep collapsed hide_args">')
                             .append(
-                            $('<span>').text(step)
-                        );
+                                $('<span>').text(step)
+                            );
                 } else {
                     if (typeof step.args === 'string' && step.args) {
                         step.args = [step.args];
@@ -1293,29 +1260,29 @@ PMA_consoleDebug = {
                     $stepElem =
                         $('<div class="message traceStep collapsed hide_args">')
                             .append(
-                            $('<span class="function">').text(this._formatFunctionCall(step))
-                        )
+                                $('<span class="function">').text(this.formatFunctionCall(step))
+                            )
                             .append(
-                            $('<span class="file">').text(this._formatFileName(step))
-                        );
+                                $('<span class="file">').text(this.formatFileName(step))
+                            );
                     if (step.args && step.args.length) {
                         $stepElem
                             .append(
-                            $('<span class="args">').html(this._formatFunctionArgs(step))
-                        )
+                                $('<span class="args">').html(this.formatFunctionArgs(step))
+                            )
                             .prepend(
-                            $('<div class="action_content">')
-                                .append(
-                                '<span class="action dbg_show_args">' +
-                                PMA_messages.strConsoleDebugShowArgs +
+                                $('<div class="action_content">')
+                                    .append(
+                                        '<span class="action dbg_show_args">' +
+                                Messages.strConsoleDebugShowArgs +
                                 '</span> '
-                            )
-                                .append(
-                                '<span class="action dbg_hide_args">' +
-                                PMA_messages.strConsoleDebugHideArgs +
+                                    )
+                                    .append(
+                                        '<span class="action dbg_hide_args">' +
+                                Messages.strConsoleDebugHideArgs +
                                 '</span> '
-                            )
-                        );
+                                    )
+                            );
                     }
                 }
                 $traceElem.append($stepElem);
@@ -1323,8 +1290,12 @@ PMA_consoleDebug = {
         }
         return $traceElem;
     },
-    _formatQueryOrGroup: function (queryInfo, totalTime) {
-        var grouped, queryText, queryTime, count, i;
+    formatQueryOrGroup: function (queryInfo, totalTime) {
+        var grouped;
+        var queryText;
+        var queryTime;
+        var count;
+        var i;
         if (Array.isArray(queryInfo)) {
             // It is grouped
             grouped = true;
@@ -1344,12 +1315,12 @@ PMA_consoleDebug = {
 
         var $query = $('<div class="message collapsed hide_trace">')
             .append(
-            $('#debug_console').find('.templates .debug_query').clone()
-        )
+                $('#debug_console').find('.templates .debug_query').clone()
+            )
             .append(
-            $('<div class="query">')
-                .text(queryText)
-        )
+                $('<div class="query">')
+                    .text(queryText)
+            )
             .data('queryInfo', queryInfo)
             .data('totalTime', totalTime);
         if (grouped) {
@@ -1360,13 +1331,13 @@ PMA_consoleDebug = {
 
         return $query;
     },
-    _appendQueryExtraInfo: function (query, $elem) {
+    appendQueryExtraInfo: function (query, $elem) {
         if ('error' in query) {
             $elem.append(
                 $('<div>').html(query.error)
             );
         }
-        $elem.append(this._formatBackTrace(query.trace));
+        $elem.append(this.formatBackTrace(query.trace));
     },
     getQueryDetails: function (queryInfo, totalTime, $query) {
         if (Array.isArray(queryInfo)) {
@@ -1375,40 +1346,41 @@ PMA_consoleDebug = {
                 $singleQuery = $('<div class="message welcome trace">')
                     .text((parseInt(i) + 1) + '.')
                     .append(
-                    $('<span class="time">').text(
-                        PMA_messages.strConsoleDebugTimeTaken +
+                        $('<span class="time">').text(
+                            Messages.strConsoleDebugTimeTaken +
                         ' ' + queryInfo[i].time + 's' +
                         ' (' + ((queryInfo[i].time * 100) / totalTime).toFixed(3) + '%)'
-                    )
-                );
-                this._appendQueryExtraInfo(queryInfo[i], $singleQuery);
+                        )
+                    );
+                this.appendQueryExtraInfo(queryInfo[i], $singleQuery);
                 $query
                     .append('<div class="message welcome trace">')
                     .append($singleQuery);
             }
         } else {
-            this._appendQueryExtraInfo(queryInfo, $query);
+            this.appendQueryExtraInfo(queryInfo, $query);
         }
     },
     showLog: function (debugInfo, url) {
-        this._lastDebugInfo.debugInfo = debugInfo;
-        this._lastDebugInfo.url = url;
+        this.lastDebugInfo.debugInfo = debugInfo;
+        this.lastDebugInfo.url = url;
 
         $('#debug_console').find('.debugLog').empty();
-        $("#debug_console").find(".debug>.welcome").empty();
+        $('#debug_console').find('.debug>.welcome').empty();
 
-        var debugJson = false, i;
-        if (typeof debugInfo === "object" && 'queries' in debugInfo) {
+        var debugJson = false;
+        var i;
+        if (typeof debugInfo === 'object' && 'queries' in debugInfo) {
             // Copy it to debugJson, so that it doesn't get changed
             if (!('queries' in debugInfo)) {
                 debugJson = false;
             } else {
-                debugJson = {queries: []};
+                debugJson = { queries: [] };
                 for (i in debugInfo.queries) {
                     debugJson.queries[i] = debugInfo.queries[i];
                 }
             }
-        } else if (typeof debugInfo === "string") {
+        } else if (typeof debugInfo === 'string') {
             try {
                 debugJson = JSON.parse(debugInfo);
             } catch (e) {
@@ -1419,8 +1391,8 @@ PMA_consoleDebug = {
             }
         }
         if (debugJson === false) {
-            $("#debug_console").find(".debug>.welcome").text(
-                PMA_messages.strConsoleDebugError
+            $('#debug_console').find('.debug>.welcome').text(
+                Messages.strConsoleDebugError
             );
             return;
         }
@@ -1439,7 +1411,8 @@ PMA_consoleDebug = {
             uniqueQueries[allQueries[i].hash].push(allQueries[i]);
         }
         // Count total unique queries, convert uniqueQueries to Array
-        var totalUnique = 0, uniqueArray = [];
+        var totalUnique = 0;
+        var uniqueArray = [];
         for (var hash in uniqueQueries) {
             if (uniqueQueries.hasOwnProperty(hash)) {
                 ++totalUnique;
@@ -1448,10 +1421,10 @@ PMA_consoleDebug = {
         }
         uniqueQueries = uniqueArray;
         // Show summary
-        $("#debug_console").find(".debug>.welcome").append(
+        $('#debug_console').find('.debug>.welcome').append(
             $('<span class="debug_summary">').text(
-                PMA_sprintf(
-                    PMA_messages.strConsoleDebugSummary,
+                Functions.sprintf(
+                    Messages.strConsoleDebugSummary,
                     totalUnique,
                     totalExec,
                     totalTime
@@ -1459,17 +1432,19 @@ PMA_consoleDebug = {
             )
         );
         if (url) {
-            $("#debug_console").find(".debug>.welcome").append(
+            $('#debug_console').find('.debug>.welcome').append(
                 $('<span class="script_name">').text(url.split('?')[0])
             );
         }
 
         // For sorting queries
-        function sortByTime(a, b) {
-            var order = ((PMA_consoleDebug.configParam('order') == 'asc') ? 1 : -1);
+        function sortByTime (a, b) {
+            var order = ((Console.config.Order === 'asc') ? 1 : -1);
             if (Array.isArray(a) && Array.isArray(b)) {
                 // It is grouped
-                var timeA = 0, timeB = 0, i;
+                var timeA = 0;
+                var timeB = 0;
+                var i;
                 for (i in a) {
                     timeA += a[i].time;
                 }
@@ -1482,53 +1457,53 @@ PMA_consoleDebug = {
             }
         }
 
-        function sortByCount(a, b) {
-            var order = ((PMA_consoleDebug.configParam('order') == 'asc') ? 1 : -1);
+        function sortByCount (a, b) {
+            var order = ((Console.config.Oorder === 'asc') ? 1 : -1);
             return (a.length - b.length) * order;
         }
 
-        var orderBy = this.configParam('orderBy');
-        var order = PMA_consoleDebug.configParam('order');
+        var orderBy = Console.config.OrderBy;
+        var order = Console.config.Order;
 
-        if (this.configParam('groupQueries')) {
+        if (Console.config.GroupQueries) {
             // Sort queries
-            if (orderBy == 'time') {
+            if (orderBy === 'time') {
                 uniqueQueries.sort(sortByTime);
-            } else if (orderBy == 'count') {
+            } else if (orderBy === 'count') {
                 uniqueQueries.sort(sortByCount);
-            } else if (orderBy == 'exec' && order == 'desc') {
+            } else if (orderBy === 'exec' && order === 'desc') {
                 uniqueQueries.reverse();
             }
             for (i in uniqueQueries) {
-                if (orderBy == 'time') {
+                if (orderBy === 'time') {
                     uniqueQueries[i].sort(sortByTime);
-                } else if (orderBy == 'exec' && order == 'desc') {
+                } else if (orderBy === 'exec' && order === 'desc') {
                     uniqueQueries[i].reverse();
                 }
-                $('#debug_console').find('.debugLog').append(this._formatQueryOrGroup(uniqueQueries[i], totalTime));
+                $('#debug_console').find('.debugLog').append(this.formatQueryOrGroup(uniqueQueries[i], totalTime));
             }
         } else {
-            if (orderBy == 'time') {
+            if (orderBy === 'time') {
                 allQueries.sort(sortByTime);
-            } else if (order == 'desc') {
+            } else if (order === 'desc') {
                 allQueries.reverse();
             }
             for (i = 0; i < totalExec; ++i) {
-                $('#debug_console').find('.debugLog').append(this._formatQueryOrGroup(allQueries[i], totalTime));
+                $('#debug_console').find('.debugLog').append(this.formatQueryOrGroup(allQueries[i], totalTime));
             }
         }
 
-        PMA_consoleMessages._msgEventBinds($('#debug_console').find('.message:not(.binded)'));
+        ConsoleMessages.messageEventBinds($('#debug_console').find('.message:not(.binded)'));
     },
     refresh: function () {
-        var last = this._lastDebugInfo;
-        PMA_consoleDebug.showLog(last.debugInfo, last.url);
+        var last = this.lastDebugInfo;
+        ConsoleDebug.showLog(last.debugInfo, last.url);
     }
 };
 
-/**s
+/** s
  * Executed on page load
  */
 $(function () {
-    PMA_console.initialize();
+    Console.initialize();
 });

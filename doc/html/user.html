@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>User Guide &#8212; phpMyAdmin 4.7.0 documentation</title>
+    <title>User Guide &#8212; phpMyAdmin 5.0.1 documentation</title>
     
     <link rel="stylesheet" href="_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '4.7.0',
+        VERSION:     '5.0.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -26,8 +26,8 @@
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="copyright" title="Copyright" href="copyright.html" />
-    <link rel="top" title="phpMyAdmin 4.7.0 documentation" href="index.html" />
-    <link rel="next" title="Transformations" href="transformations.html" />
+    <link rel="top" title="phpMyAdmin 5.0.1 documentation" href="index.html" />
+    <link rel="next" title="Configuring phpMyAdmin" href="settings.html" />
     <link rel="prev" title="Configuration" href="config.html" /> 
   </head>
   <body role="document">
@@ -38,12 +38,12 @@
           <a href="genindex.html" title="General Index"
              accesskey="I">index</a></li>
         <li class="right" >
-          <a href="transformations.html" title="Transformations"
+          <a href="settings.html" title="Configuring phpMyAdmin"
              accesskey="N">next</a> |</li>
         <li class="right" >
           <a href="config.html" title="Configuration"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">phpMyAdmin 4.7.0 documentation</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="index.html">phpMyAdmin 5.0.1 documentation</a> &#187;</li> 
       </ul>
     </div>  
 
@@ -56,6 +56,13 @@
 <h1>User Guide<a class="headerlink" href="#user-guide" title="Permalink to this headline">¶</a></h1>
 <div class="toctree-wrapper compound">
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="settings.html">Configuring phpMyAdmin</a></li>
+<li class="toctree-l1"><a class="reference internal" href="two_factor.html">Two-factor authentication</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="two_factor.html#authentication-application-2fa">Authentication Application (2FA)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="two_factor.html#hardware-security-key-fido-u2f">Hardware Security Key (FIDO U2F)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="two_factor.html#simple-two-factor-authentication">Simple two-factor authentication</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="transformations.html">Transformations</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="transformations.html#introduction">Introduction</a></li>
 <li class="toctree-l2"><a class="reference internal" href="transformations.html#usage">Usage</a></li>
@@ -65,7 +72,7 @@
 <li class="toctree-l1"><a class="reference internal" href="bookmarks.html">Bookmarks</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="bookmarks.html#storing-bookmarks">Storing bookmarks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="bookmarks.html#variables-inside-bookmarks">Variables inside bookmarks</a></li>
-<li class="toctree-l2"><a class="reference internal" href="bookmarks.html#browsing-table-using-bookmark">Browsing table using bookmark</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bookmarks.html#browsing-a-table-using-a-bookmark">Browsing a table using a bookmark</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="privileges.html">User management</a><ul>
@@ -92,6 +99,11 @@
 <li class="toctree-l2"><a class="reference internal" href="import_export.html#export">Export</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="themes.html">Custom Themes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="themes.html#configuration">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="themes.html#creating-custom-theme">Creating custom theme</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="other.html">Other sources of information</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="other.html#printed-book">Printed Book</a></li>
 <li class="toctree-l2"><a class="reference internal" href="other.html#tutorials">Tutorials</a></li>
@@ -111,8 +123,8 @@
   <p class="topless"><a href="config.html"
                         title="previous chapter">Configuration</a></p>
   <h4>Next topic</h4>
-  <p class="topless"><a href="transformations.html"
-                        title="next chapter">Transformations</a></p>
+  <p class="topless"><a href="settings.html"
+                        title="next chapter">Configuring phpMyAdmin</a></p>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
@@ -141,16 +153,16 @@
           <a href="genindex.html" title="General Index"
              >index</a></li>
         <li class="right" >
-          <a href="transformations.html" title="Transformations"
+          <a href="settings.html" title="Configuring phpMyAdmin"
              >next</a> |</li>
         <li class="right" >
           <a href="config.html" title="Configuration"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">phpMyAdmin 4.7.0 documentation</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="index.html">phpMyAdmin 5.0.1 documentation</a> &#187;</li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">
-        &#169; <a href="copyright.html">Copyright</a> 2012 - 2017, The phpMyAdmin devel team.
+        &#169; <a href="copyright.html">Copyright</a> 2012 - 2018, The phpMyAdmin devel team.
       Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.9.
     </div>
   </body>

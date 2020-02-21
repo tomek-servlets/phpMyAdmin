@@ -1,32 +1,24 @@
 <?php
 /* vim: set expandtab sw=4 ts=4 sts=4: */
-
 /**
  * Handles server plugins page.
  *
  * @package PhpMyAdmin
  */
+declare(strict_types=1);
 
-namespace PMA;
+use PhpMyAdmin\Controllers\Server\PluginsController;
+use PhpMyAdmin\Response;
 
-use PMA\libraries\controllers\server\ServerPluginsController;
-use PMA\libraries\Response;
+if (! defined('ROOT_PATH')) {
+    define('ROOT_PATH', __DIR__ . DIRECTORY_SEPARATOR);
+}
 
-require_once 'libraries/common.inc.php';
+require_once ROOT_PATH . 'libraries/common.inc.php';
 
-$container = \PMA\libraries\di\Container::getDefaultContainer();
-$container->factory(
-    'PMA\libraries\controllers\server\ServerPluginsController'
-);
-$container->alias(
-    'ServerPluginsController',
-    'PMA\libraries\controllers\server\ServerPluginsController'
-);
-$container->set('PMA\libraries\Response', Response::getInstance());
-$container->alias('response', 'PMA\libraries\Response');
+/** @var PluginsController $controller */
+$controller = $containerBuilder->get(PluginsController::class);
 
-/** @var ServerPluginsController $controller */
-$controller = $container->get(
-    'ServerPluginsController', array()
-);
-$controller->indexAction();
+/** @var Response $response */
+$response = $containerBuilder->get(Response::class);
+$response->addHTML($controller->index());

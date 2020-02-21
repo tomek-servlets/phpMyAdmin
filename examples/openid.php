@@ -15,20 +15,24 @@
  * @package    PhpMyAdmin
  * @subpackage Example
  */
+declare(strict_types=1);
 
 if (false === @include_once 'OpenID/RelyingParty.php') {
     exit;
 }
 
+/* Change this to true if using phpMyAdmin over https */
+$secure_cookie = false;
+
 /**
  * Map of authenticated users to MySQL user/password pairs.
  */
-$AUTH_MAP = array(
-    'https://launchpad.net/~username' => array(
+$AUTH_MAP = [
+    'https://launchpad.net/~username' => [
         'user' => 'root',
         'password' => '',
-        ),
-    );
+    ],
+];
 
 /**
  * Simple function to show HTML page with given content.
@@ -45,9 +49,9 @@ function Show_page($contents)
     <!DOCTYPE HTML>
     <html lang="en" dir="ltr">
     <head>
-    <link rel="icon" href="../favicon.ico" type="image/x-icon" />
-    <link rel="shortcut icon" href="../favicon.ico" type="image/x-icon" />
-    <meta charset="utf-8" />
+    <link rel="icon" href="../favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="../favicon.ico" type="image/x-icon">
+    <meta charset="utf-8">
     <title>phpMyAdmin OpenID signon example</title>
     </head>
     <body>
@@ -63,6 +67,13 @@ function Show_page($contents)
     <?php
 }
 
+/**
+ * Display error and exit
+ *
+ * @param Exception $e Exception object
+ *
+ * @return void
+ */
 function Die_error($e)
 {
     $contents = "<div class='relyingparty_results'>\n";
@@ -74,7 +85,7 @@ function Die_error($e)
 
 
 /* Need to have cookie visible from parent directory */
-session_set_cookie_params(0, '/', '', true, true);
+session_set_cookie_params(0, '/', '', $secure_cookie, true);
 /* Create signon session */
 $session_name = 'SignonSession';
 session_name($session_name);
@@ -95,11 +106,11 @@ if ($returnTo[strlen($returnTo) - 1] != '/') {
 $returnTo .= 'openid.php';
 
 /* Display form */
-if (!count($_GET) && !count($_POST) || isset($_GET['phpMyAdmin'])) {
+if (! count($_GET) && ! count($_POST) || isset($_GET['phpMyAdmin'])) {
     /* Show simple form */
     $content = '<form action="openid.php" method="post">
-OpenID: <input type="text" name="identifier" /><br />
-<input type="submit" name="start" />
+OpenID: <input type="text" name="identifier"><br>
+<input type="submit" name="start">
 </form>
 </body>
 </html>';
@@ -110,7 +121,7 @@ OpenID: <input type="text" name="identifier" /><br />
 /* Grab identifier */
 if (isset($_POST['identifier']) && is_string($_POST['identifier'])) {
     $identifier = $_POST['identifier'];
-} else if (isset($_SESSION['identifier']) && is_string($_SESSION['identifier'])) {
+} elseif (isset($_SESSION['identifier']) && is_string($_SESSION['identifier'])) {
     $identifier = $_SESSION['identifier'];
 } else {
     $identifier = null;
@@ -137,7 +148,7 @@ if (isset($_POST['start'])) {
     exit;
 } else {
     /* Grab query string */
-    if (!count($_POST)) {
+    if (! count($_POST)) {
         list(, $queryString) = explode('?', $_SERVER['REQUEST_URI']);
     } else {
         // I hate php sometimes
@@ -153,7 +164,7 @@ if (isset($_POST['start'])) {
 
     $id = $message->get('openid.claimed_id');
 
-    if (!empty($id) && isset($AUTH_MAP[$id])) {
+    if (! empty($id) && isset($AUTH_MAP[$id])) {
         $_SESSION['PMA_single_signon_user'] = $AUTH_MAP[$id]['user'];
         $_SESSION['PMA_single_signon_password'] = $AUTH_MAP[$id]['password'];
         session_write_close();

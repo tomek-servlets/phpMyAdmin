@@ -5,57 +5,58 @@
  *
  * @package PhpMyAdmin
  */
-use PMA\libraries\Response;
+declare(strict_types=1);
 
-require_once 'libraries/common.inc.php';
-require_once 'libraries/transformations.lib.php';
-require_once 'libraries/browse_foreigners.lib.php';
+use PhpMyAdmin\BrowseForeigners;
+use PhpMyAdmin\Controllers\BrowseForeignersController;
+use PhpMyAdmin\DatabaseInterface;
+use PhpMyAdmin\Response;
+use PhpMyAdmin\Template;
+use PhpMyAdmin\Util;
 
-/**
- * Sets globals from $_REQUEST
- */
-$request_params = array(
-    'data',
-    'field'
-);
-
-foreach ($request_params as $one_request_param) {
-    if (isset($_REQUEST[$one_request_param])) {
-        $GLOBALS[$one_request_param] = $_REQUEST[$one_request_param];
-    }
+if (! defined('ROOT_PATH')) {
+    define('ROOT_PATH', __DIR__ . DIRECTORY_SEPARATOR);
 }
 
-PMA\libraries\Util::checkParameters(array('db', 'table', 'field'));
+require_once ROOT_PATH . 'libraries/common.inc.php';
 
-$response = Response::getInstance();
+Util::checkParameters(['db', 'table', 'field'], true);
+
+/** @var Response $response */
+$response = $containerBuilder->get(Response::class);
+
+/** @var DatabaseInterface $dbi */
+$dbi = $containerBuilder->get(DatabaseInterface::class);
+
+/** @var Template $template */
+$template = $containerBuilder->get('template');
+/* Register BrowseForeignersController dependencies */
+$containerBuilder->set(
+    'browse_foreigners',
+    new BrowseForeigners(
+        (int) $GLOBALS['cfg']['LimitChars'],
+        (int) $GLOBALS['cfg']['MaxRows'],
+        (int) $GLOBALS['cfg']['RepeatCells'],
+        (bool) $GLOBALS['cfg']['ShowAll'],
+        $GLOBALS['pmaThemeImage'],
+        $template
+    )
+);
+
+/** @var BrowseForeignersController $controller */
+$controller = $containerBuilder->get(BrowseForeignersController::class);
+
 $response->getFooter()->setMinimal();
 $header = $response->getHeader();
 $header->disableMenuAndConsole();
 $header->setBodyId('body_browse_foreigners');
 
-/**
- * Displays the frame
- */
-
-$foreigners  = PMA_getForeigners($db, $table);
-$foreign_limit = PMA_getForeignLimit(
-    isset($_REQUEST['foreign_showAll']) ? $_REQUEST['foreign_showAll'] : null
-);
-
-$foreignData = PMA_getForeignData(
-    $foreigners, $_REQUEST['field'], true,
-    isset($_REQUEST['foreign_filter'])
-    ? $_REQUEST['foreign_filter']
-    : '',
-    isset($foreign_limit) ? $foreign_limit : null,
-    true // for getting value in $foreignData['the_total']
-);
-
-// HTML output
-$html = PMA_getHtmlForRelationalFieldSelection(
-    $db, $table, $_REQUEST['field'], $foreignData,
-    isset($fieldkey) ? $fieldkey : null,
-    isset($data) ? $data : null
-);
-
-$response->addHtml($html);
+$response->addHTML($controller->index([
+    'db' => $_POST['db'] ?? null,
+    'table' => $_POST['table'] ?? null,
+    'field' => $_POST['field'] ?? null,
+    'fieldkey' => $_POST['fieldkey'] ?? null,
+    'data' => $_POST['data'] ?? null,
+    'foreign_showAll' => $_POST['foreign_showAll'] ?? null,
+    'foreign_filter' => $_POST['foreign_filter'] ?? null,
+]));

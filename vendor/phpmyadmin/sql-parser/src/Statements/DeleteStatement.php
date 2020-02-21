@@ -1,8 +1,8 @@
 <?php
-
 /**
  * `DELETE` statement.
  */
+declare(strict_types=1);
 
 namespace PhpMyAdmin\SqlParser\Statements;
 
@@ -10,6 +10,7 @@ use PhpMyAdmin\SqlParser\Components\ArrayObj;
 use PhpMyAdmin\SqlParser\Components\Condition;
 use PhpMyAdmin\SqlParser\Components\Expression;
 use PhpMyAdmin\SqlParser\Components\ExpressionArray;
+use PhpMyAdmin\SqlParser\Components\JoinKeyword;
 use PhpMyAdmin\SqlParser\Components\Limit;
 use PhpMyAdmin\SqlParser\Components\OptionsArray;
 use PhpMyAdmin\SqlParser\Components\OrderKeyword;
@@ -40,11 +41,6 @@ use PhpMyAdmin\SqlParser\TokensList;
  *   FROM tbl_name[.*] [, tbl_name[.*]] ...
  *   USING table_references
  *   [WHERE where_condition]
- *
- *
- * @category   Statements
- *
- * @license    https://www.gnu.org/licenses/gpl-2.0.txt GPL-2.0+
  */
 class DeleteStatement extends Statement
 {
@@ -53,11 +49,11 @@ class DeleteStatement extends Statement
      *
      * @var array
      */
-    public static $OPTIONS = array(
+    public static $OPTIONS = [
         'LOW_PRIORITY' => 1,
         'QUICK' => 2,
         'IGNORE' => 3,
-    );
+    ];
 
     /**
      * The clauses of this statement, in order.
@@ -66,17 +62,41 @@ class DeleteStatement extends Statement
      *
      * @var array
      */
-    public static $CLAUSES = array(
-        'DELETE' => array('DELETE', 2),
+    public static $CLAUSES = [
+        'DELETE' => [
+            'DELETE',
+            2,
+        ],
         // Used for options.
-        '_OPTIONS' => array('_OPTIONS', 1),
-        'FROM' => array('FROM', 3),
-        'PARTITION' => array('PARTITION', 3),
-        'USING' => array('USING', 3),
-        'WHERE' => array('WHERE', 3),
-        'ORDER BY' => array('ORDER BY', 3),
-        'LIMIT' => array('LIMIT', 3),
-    );
+        '_OPTIONS' => [
+            '_OPTIONS',
+            1,
+        ],
+        'FROM' => [
+            'FROM',
+            3,
+        ],
+        'PARTITION' => [
+            'PARTITION',
+            3,
+        ],
+        'USING' => [
+            'USING',
+            3,
+        ],
+        'WHERE' => [
+            'WHERE',
+            3,
+        ],
+        'ORDER BY' => [
+            'ORDER BY',
+            3,
+        ],
+        'LIMIT' => [
+            'LIMIT',
+            3,
+        ],
+    ];
 
     /**
      * Table(s) used as sources for this statement.
@@ -84,6 +104,13 @@ class DeleteStatement extends Statement
      * @var Expression[]
      */
     public $from;
+
+    /**
+     * Joins.
+     *
+     * @var JoinKeyword[]
+     */
+    public $join;
 
     /**
      * Tables used as sources for this statement.
@@ -134,22 +161,25 @@ class DeleteStatement extends Statement
     {
         $ret = 'DELETE ' . OptionsArray::build($this->options);
 
-        if ($this->columns != null && count($this->columns) > 0) {
+        if ($this->columns !== null && count($this->columns) > 0) {
             $ret .= ' ' . ExpressionArray::build($this->columns);
         }
-        if ($this->from != null && count($this->from) > 0) {
+        if ($this->from !== null && count($this->from) > 0) {
             $ret .= ' FROM ' . ExpressionArray::build($this->from);
         }
-        if ($this->using != null && count($this->using) > 0) {
+        if ($this->join !== null && count($this->join) > 0) {
+            $ret .= ' ' . JoinKeyword::build($this->join);
+        }
+        if ($this->using !== null && count($this->using) > 0) {
             $ret .= ' USING ' . ExpressionArray::build($this->using);
         }
-        if ($this->where != null && count($this->where) > 0) {
+        if ($this->where !== null && count($this->where) > 0) {
             $ret .= ' WHERE ' . Condition::build($this->where);
         }
-        if ($this->order != null && count($this->order) > 0) {
+        if ($this->order !== null && count($this->order) > 0) {
             $ret .= ' ORDER BY ' . ExpressionArray::build($this->order);
         }
-        if ($this->limit != null && strlen($this->limit) > 0) {
+        if ($this->limit !== null && strlen((string) $this->limit) > 0) {
             $ret .= ' LIMIT ' . Limit::build($this->limit);
         }
 
@@ -210,78 +240,82 @@ class DeleteStatement extends Statement
             }
 
             if ($state === 0) {
-                if ($token->type === Token::TYPE_KEYWORD
-                    && $token->keyword !== 'FROM'
-                ) {
-                    $parser->error('Unexpected keyword.', $token);
-                    break;
-                } elseif ($token->type === Token::TYPE_KEYWORD
-                    && $token->keyword === 'FROM'
-                ) {
-                    ++$list->idx; // Skip 'FROM'
-                    $this->from = ExpressionArray::parse($parser, $list);
-                    $state = 2;
+                if ($token->type === Token::TYPE_KEYWORD) {
+                    if ($token->keyword !== 'FROM') {
+                        $parser->error('Unexpected keyword.', $token);
+                        break;
+                    } else {
+                        ++$list->idx; // Skip 'FROM'
+                        $this->from = ExpressionArray::parse($parser, $list);
+
+                        $state = 2;
+                    }
                 } else {
                     $this->columns = ExpressionArray::parse($parser, $list);
                     $state = 1;
                 }
             } elseif ($state === 1) {
-                if ($token->type === Token::TYPE_KEYWORD
-                    && $token->keyword !== 'FROM'
-                ) {
-                    $parser->error('Unexpected keyword.', $token);
-                    break;
-                } elseif ($token->type === Token::TYPE_KEYWORD
-                    && $token->keyword === 'FROM'
-                ) {
-                    ++$list->idx; // Skip 'FROM'
-                    $this->from = ExpressionArray::parse($parser, $list);
-                    $state = 2;
+                if ($token->type === Token::TYPE_KEYWORD) {
+                    if ($token->keyword !== 'FROM') {
+                        $parser->error('Unexpected keyword.', $token);
+                        break;
+                    } else {
+                        ++$list->idx; // Skip 'FROM'
+                        $this->from = ExpressionArray::parse($parser, $list);
+
+                        $state = 2;
+                    }
                 } else {
                     $parser->error('Unexpected token.', $token);
                     break;
                 }
             } elseif ($state === 2) {
-                if ($token->type === Token::TYPE_KEYWORD
-                    && $token->keyword === 'USING'
-                ) {
-                    ++$list->idx; // Skip 'USING'
-                    $this->using = ExpressionArray::parse($parser, $list);
-                    $state = 3;
+                if ($token->type === Token::TYPE_KEYWORD) {
+                    if (stripos($token->keyword, 'JOIN') !== false) {
+                        ++$list->idx;
+                        $this->join = JoinKeyword::parse($parser, $list);
 
-                    $multiTable = true;
-                } elseif ($token->type === Token::TYPE_KEYWORD
-                    && $token->keyword === 'WHERE'
-                ) {
-                    ++$list->idx; // Skip 'WHERE'
-                    $this->where = Condition::parse($parser, $list);
-                    $state = 4;
-                } elseif ($token->type === Token::TYPE_KEYWORD
-                    && $token->keyword === 'ORDER BY'
-                ) {
-                    ++$list->idx; // Skip 'ORDER BY'
-                    $this->order = OrderKeyword::parse($parser, $list);
-                    $state = 5;
-                } elseif ($token->type === Token::TYPE_KEYWORD
-                    && $token->keyword === 'LIMIT'
-                ) {
-                    ++$list->idx; // Skip 'LIMIT'
-                    $this->limit = Limit::parse($parser, $list);
-                    $state = 6;
-                } elseif ($token->type === Token::TYPE_KEYWORD) {
-                    $parser->error('Unexpected keyword.', $token);
-                    break;
+                        // remain in state = 2
+                    } else {
+                        switch ($token->keyword) {
+                            case 'USING':
+                                ++$list->idx; // Skip 'USING'
+                                $this->using = ExpressionArray::parse($parser, $list);
+                                $state = 3;
+
+                                $multiTable = true;
+                                break;
+                            case 'WHERE':
+                                ++$list->idx; // Skip 'WHERE'
+                                $this->where = Condition::parse($parser, $list);
+                                $state = 4;
+                                break;
+                            case 'ORDER BY':
+                                ++$list->idx; // Skip 'ORDER BY'
+                                $this->order = OrderKeyword::parse($parser, $list);
+                                $state = 5;
+                                break;
+                            case 'LIMIT':
+                                ++$list->idx; // Skip 'LIMIT'
+                                $this->limit = Limit::parse($parser, $list);
+                                $state = 6;
+                                break;
+                            default:
+                                $parser->error('Unexpected keyword.', $token);
+                                break 2;
+                        }
+                    }
                 }
             } elseif ($state === 3) {
-                if ($token->type === Token::TYPE_KEYWORD
-                    && $token->keyword === 'WHERE'
-                ) {
-                    ++$list->idx; // Skip 'WHERE'
-                    $this->where = Condition::parse($parser, $list);
-                    $state = 4;
-                } elseif ($token->type === Token::TYPE_KEYWORD) {
-                    $parser->error('Unexpected keyword.', $token);
-                    break;
+                if ($token->type === Token::TYPE_KEYWORD) {
+                    if ($token->keyword === 'WHERE') {
+                        ++$list->idx; // Skip 'WHERE'
+                        $this->where = Condition::parse($parser, $list);
+                        $state = 4;
+                    } else {
+                        $parser->error('Unexpected keyword.', $token);
+                        break;
+                    }
                 } else {
                     $parser->error('Unexpected token.', $token);
                     break;
@@ -297,32 +331,33 @@ class DeleteStatement extends Statement
                     break;
                 }
 
-                if ($token->type === Token::TYPE_KEYWORD
-                    && $token->keyword === 'ORDER BY'
-                ) {
-                    ++$list->idx; // Skip 'ORDER  BY'
-                    $this->order = OrderKeyword::parse($parser, $list);
-                    $state = 5;
-                } elseif ($token->type === Token::TYPE_KEYWORD
-                    && $token->keyword === 'LIMIT'
-                ) {
-                    ++$list->idx; // Skip 'LIMIT'
-                    $this->limit = Limit::parse($parser, $list);
-                    $state = 6;
-                } elseif ($token->type === Token::TYPE_KEYWORD) {
-                    $parser->error('Unexpected keyword.', $token);
-                    break;
+                if ($token->type === Token::TYPE_KEYWORD) {
+                    switch ($token->keyword) {
+                        case 'ORDER BY':
+                            ++$list->idx; // Skip 'ORDER  BY'
+                            $this->order = OrderKeyword::parse($parser, $list);
+                            $state = 5;
+                            break;
+                        case 'LIMIT':
+                            ++$list->idx; // Skip 'LIMIT'
+                            $this->limit = Limit::parse($parser, $list);
+                            $state = 6;
+                            break;
+                        default:
+                            $parser->error('Unexpected keyword.', $token);
+                            break 2;
+                    }
                 }
             } elseif ($state === 5) {
-                if ($token->type === Token::TYPE_KEYWORD
-                    && $token->keyword === 'LIMIT'
-                ) {
-                    ++$list->idx; // Skip 'LIMIT'
-                    $this->limit = Limit::parse($parser, $list);
-                    $state = 6;
-                } elseif ($token->type === Token::TYPE_KEYWORD) {
-                    $parser->error('Unexpected keyword.', $token);
-                    break;
+                if ($token->type === Token::TYPE_KEYWORD) {
+                    if ($token->keyword === 'LIMIT') {
+                        ++$list->idx; // Skip 'LIMIT'
+                        $this->limit = Limit::parse($parser, $list);
+                        $state = 6;
+                    } else {
+                        $parser->error('Unexpected keyword.', $token);
+                        break;
+                    }
                 }
             }
         }

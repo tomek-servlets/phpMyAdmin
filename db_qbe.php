@@ -5,62 +5,82 @@
  *
  * @package PhpMyAdmin
  */
-use PMA\libraries\SavedSearches;
-use PMA\libraries\URL;
-use PMA\libraries\Response;
+declare(strict_types=1);
 
-/**
- * requirements
- */
-require_once 'libraries/common.inc.php';
-require_once 'libraries/sql.lib.php';
+use PhpMyAdmin\Database\Qbe;
+use PhpMyAdmin\DatabaseInterface;
+use PhpMyAdmin\Message;
+use PhpMyAdmin\Relation;
+use PhpMyAdmin\Response;
+use PhpMyAdmin\SavedSearches;
+use PhpMyAdmin\Sql;
+use PhpMyAdmin\Template;
+use PhpMyAdmin\Url;
+use PhpMyAdmin\Util;
 
-$response = Response::getInstance();
+if (! defined('ROOT_PATH')) {
+    define('ROOT_PATH', __DIR__ . DIRECTORY_SEPARATOR);
+}
+
+global $db, $pmaThemeImage, $url_query;
+
+require_once ROOT_PATH . 'libraries/common.inc.php';
+
+/** @var Response $response */
+$response = $containerBuilder->get(Response::class);
+
+/** @var DatabaseInterface $dbi */
+$dbi = $containerBuilder->get(DatabaseInterface::class);
+
+/** @var Relation $relation */
+$relation = $containerBuilder->get('relation');
+/** @var Template $template */
+$template = $containerBuilder->get('template');
 
 // Gets the relation settings
-$cfgRelation = PMA_getRelationsParam();
+$cfgRelation = $relation->getRelationsParam();
 
-$savedSearchList = array();
+$savedSearchList = [];
 $savedSearch = null;
 $currentSearchId = null;
 if ($cfgRelation['savedsearcheswork']) {
     $header = $response->getHeader();
     $scripts = $header->getScripts();
-    $scripts->addFile('db_qbe.js');
+    $scripts->addFile('database/qbe.js');
 
     //Get saved search list.
-    $savedSearch = new SavedSearches($GLOBALS);
+    $savedSearch = new SavedSearches($GLOBALS, $relation);
     $savedSearch->setUsername($GLOBALS['cfg']['Server']['user'])
-        ->setDbname($_REQUEST['db']);
+        ->setDbname($db);
 
-    if (!empty($_REQUEST['searchId'])) {
-        $savedSearch->setId($_REQUEST['searchId']);
+    if (! empty($_POST['searchId'])) {
+        $savedSearch->setId($_POST['searchId']);
     }
 
     //Action field is sent.
-    if (isset($_REQUEST['action'])) {
-        $savedSearch->setSearchName($_REQUEST['searchName']);
-        if ('create' === $_REQUEST['action']) {
+    if (isset($_POST['action'])) {
+        $savedSearch->setSearchName($_POST['searchName']);
+        if ('create' === $_POST['action']) {
             $saveResult = $savedSearch->setId(null)
-                ->setCriterias($_REQUEST)
+                ->setCriterias($_POST)
                 ->save();
-        } elseif ('update' === $_REQUEST['action']) {
-            $saveResult = $savedSearch->setCriterias($_REQUEST)
+        } elseif ('update' === $_POST['action']) {
+            $saveResult = $savedSearch->setCriterias($_POST)
                 ->save();
-        } elseif ('delete' === $_REQUEST['action']) {
+        } elseif ('delete' === $_POST['action']) {
             $deleteResult = $savedSearch->delete();
             //After deletion, reset search.
-            $savedSearch = new SavedSearches($GLOBALS);
+            $savedSearch = new SavedSearches($GLOBALS, $relation);
             $savedSearch->setUsername($GLOBALS['cfg']['Server']['user'])
-                ->setDbname($_REQUEST['db']);
-            $_REQUEST = array();
-        } elseif ('load' === $_REQUEST['action']) {
-            if (empty($_REQUEST['searchId'])) {
+                ->setDbname($db);
+            $_POST = [];
+        } elseif ('load' === $_POST['action']) {
+            if (empty($_POST['searchId'])) {
                 //when not loading a search, reset the object.
-                $savedSearch = new SavedSearches($GLOBALS);
+                $savedSearch = new SavedSearches($GLOBALS, $relation);
                 $savedSearch->setUsername($GLOBALS['cfg']['Server']['user'])
-                    ->setDbname($_REQUEST['db']);
-                $_REQUEST = array();
+                    ->setDbname($db);
+                $_POST = [];
             } else {
                 $loadResult = $savedSearch->load();
             }
@@ -76,15 +96,16 @@ if ($cfgRelation['savedsearcheswork']) {
  * A query has been submitted -> (maybe) execute it
  */
 $message_to_display = false;
-if (isset($_REQUEST['submit_sql']) && ! empty($sql_query)) {
-    if (! preg_match('@^SELECT@i', $sql_query)) {
+if (isset($_POST['submit_sql']) && ! empty($sql_query)) {
+    if (0 !== stripos($sql_query, "SELECT")) {
         $message_to_display = true;
     } else {
         $goto = 'db_sql.php';
-        PMA_executeQueryAndSendQueryResponse(
+        $sql = new Sql();
+        $sql->executeQueryAndSendQueryResponse(
             null, // analyzed_sql_results
             false, // is_gotofile
-            $_REQUEST['db'], // db
+            $_POST['db'], // db
             null, // table
             false, // find_real_end
             null, // sql_query_for_bookmark
@@ -105,7 +126,7 @@ if (isset($_REQUEST['submit_sql']) && ! empty($sql_query)) {
 }
 
 $sub_part  = '_qbe';
-require 'libraries/db_common.inc.php';
+require ROOT_PATH . 'libraries/db_common.inc.php';
 $url_query .= '&amp;goto=db_qbe.php';
 $url_params['goto'] = 'db_qbe.php';
 
@@ -119,10 +140,10 @@ list(
     $tooltip_truename,
     $tooltip_aliasname,
     $pos
-) = PMA\libraries\Util::getDbInfo($db, isset($sub_part) ? $sub_part : '');
+) = Util::getDbInfo($db, $sub_part === null ? '' : $sub_part);
 
 if ($message_to_display) {
-    PMA\libraries\Message::error(
+    Message::error(
         __('You have to choose at least one column to display!')
     )
         ->display();
@@ -130,16 +151,33 @@ if ($message_to_display) {
 unset($message_to_display);
 
 // create new qbe search instance
-$db_qbe = new PMA\libraries\DbQbe($GLOBALS['db'], $savedSearchList, $savedSearch);
+$db_qbe = new Qbe($relation, $template, $dbi, $db, $savedSearchList, $savedSearch);
 
-$url = 'db_designer.php' . URL::getCommon(
+$secondaryTabs = [
+    'multi' => [
+        'link' => 'db_multi_table_query.php',
+        'text' => __('Multi-table query'),
+    ],
+    'qbe' => [
+        'link' => 'db_qbe.php',
+        'text' => __('Query by example'),
+    ],
+];
+$response->addHTML(
+    $template->render('secondary_tabs', [
+        'url_params' => $url_params,
+        'sub_tabs' => $secondaryTabs,
+    ])
+);
+
+$url = 'db_designer.php' . Url::getCommon(
     array_merge(
         $url_params,
-        array('query' => 1)
+        ['query' => 1]
     )
 );
 $response->addHTML(
-    PMA\libraries\Message::notice(
+    Message::notice(
         sprintf(
             __('Switch to %svisual builder%s'),
             '<a href="' . $url . '">',

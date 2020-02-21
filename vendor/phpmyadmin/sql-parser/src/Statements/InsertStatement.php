@@ -1,12 +1,13 @@
 <?php
-
 /**
  * `INSERT` statement.
  */
+declare(strict_types=1);
 
 namespace PhpMyAdmin\SqlParser\Statements;
 
 use PhpMyAdmin\SqlParser\Components\Array2d;
+use PhpMyAdmin\SqlParser\Components\ArrayObj;
 use PhpMyAdmin\SqlParser\Components\IntoKeyword;
 use PhpMyAdmin\SqlParser\Components\OptionsArray;
 use PhpMyAdmin\SqlParser\Components\SetOperation;
@@ -47,10 +48,6 @@ use PhpMyAdmin\SqlParser\TokensList;
  *     [ ON DUPLICATE KEY UPDATE
  *       col_name=expr
  *         [, col_name=expr] ... ]
- *
- * @category   Statements
- *
- * @license    https://www.gnu.org/licenses/gpl-2.0.txt GPL-2.0+
  */
 class InsertStatement extends Statement
 {
@@ -59,12 +56,12 @@ class InsertStatement extends Statement
      *
      * @var array
      */
-    public static $OPTIONS = array(
+    public static $OPTIONS = [
         'LOW_PRIORITY' => 1,
         'DELAYED' => 2,
         'HIGH_PRIORITY' => 3,
         'IGNORE' => 4,
-    );
+    ];
 
     /**
      * Tables used as target for this statement.
@@ -109,18 +106,18 @@ class InsertStatement extends Statement
      */
     public function build()
     {
-        $ret = 'INSERT ' . $this->options
-            . ' INTO ' . $this->into;
+        $ret = 'INSERT ' . $this->options;
+        $ret = trim($ret) . ' INTO ' . $this->into;
 
-        if ($this->values != null && count($this->values) > 0) {
+        if ($this->values !== null && count($this->values) > 0) {
             $ret .= ' VALUES ' . Array2d::build($this->values);
-        } elseif ($this->set != null && count($this->set) > 0) {
+        } elseif ($this->set !== null && count($this->set) > 0) {
             $ret .= ' SET ' . SetOperation::build($this->set);
-        } elseif ($this->select != null && strlen($this->select) > 0) {
+        } elseif ($this->select !== null && strlen((string) $this->select) > 0) {
             $ret .= ' ' . $this->select->build();
         }
 
-        if ($this->onDuplicateSet != null && count($this->onDuplicateSet) > 0) {
+        if ($this->onDuplicateSet !== null && count($this->onDuplicateSet) > 0) {
             $ret .= ' ON DUPLICATE KEY UPDATE ' . SetOperation::build($this->onDuplicateSet);
         }
 
@@ -194,7 +191,7 @@ class InsertStatement extends Statement
                 $this->into = IntoKeyword::parse(
                     $parser,
                     $list,
-                    array('fromInsert' => true)
+                    ['fromInsert' => true]
                 );
 
                 $state = 1;
@@ -228,7 +225,7 @@ class InsertStatement extends Statement
                     );
                     break;
                 }
-            } elseif ($state == 2) {
+            } elseif ($state === 2) {
                 $lastCount = $miniState;
 
                 if ($miniState === 1 && $token->keyword === 'ON') {

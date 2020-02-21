@@ -6,42 +6,63 @@
  *
  * @package PhpMyAdmin
  */
+declare(strict_types=1);
 
-namespace PMA;
+use PhpMyAdmin\Controllers\Table\StructureController;
+use PhpMyAdmin\DatabaseInterface;
+use Symfony\Component\DependencyInjection\Definition;
 
-use PMA\libraries\controllers\table\TableStructureController;
-use PMA\libraries\Response;
+if (! defined('ROOT_PATH')) {
+    define('ROOT_PATH', __DIR__ . DIRECTORY_SEPARATOR);
+}
 
-require_once 'libraries/common.inc.php';
-require_once 'libraries/tbl_info.inc.php';
-require_once 'libraries/config/messages.inc.php';
-require_once 'libraries/config/user_preferences.forms.php';
-require_once 'libraries/config/page_settings.forms.php';
+global $db_is_system_schema, $tbl_is_view, $tbl_storage_engine;
+global $table_info_num_rows, $tbl_collation, $showtable;
 
-$container = libraries\di\Container::getDefaultContainer();
-$container->factory('PMA\libraries\controllers\table\TableStructureController');
-$container->alias(
-    'TableStructureController',
-    'PMA\libraries\controllers\table\TableStructureController'
-);
-$container->set('PMA\libraries\Response', Response::getInstance());
-$container->alias('response', 'PMA\libraries\Response');
+require_once ROOT_PATH . 'libraries/common.inc.php';
 
-global $db, $table, $db_is_system_schema, $tbl_is_view, $tbl_storage_engine,
-    $table_info_num_rows, $tbl_collation, $showtable;
+/** @var DatabaseInterface $dbi */
+$dbi = $containerBuilder->get('dbi');
+
+/** @var string $db */
+$db = $containerBuilder->getParameter('db');
+
+/** @var string $table */
+$table = $containerBuilder->getParameter('table');
+
+$dbi->selectDb($db);
+$table_class_object = $dbi->getTable($db, $table);
+$reread_info = $table_class_object->getStatusInfo(null, true);
+$GLOBALS['showtable'] = $table_class_object->getStatusInfo(null, (isset($reread_info) && $reread_info ? true : false));
+if ($table_class_object->isView()) {
+    $tbl_is_view = true;
+    $tbl_storage_engine = __('View');
+} else {
+    $tbl_is_view = false;
+    $tbl_storage_engine = $table_class_object->getStorageEngine();
+}
+$tbl_collation = $table_class_object->getCollation();
+$table_info_num_rows = $table_class_object->getNumRows();
 /* Define dependencies for the concerned controller */
-$dependency_definitions = array(
-    'db' => $db,
-    'table' => $table,
-    'url_query' => &$GLOBALS['url_query'],
+$dependency_definitions = [
     'db_is_system_schema' => $db_is_system_schema,
     'tbl_is_view' => $tbl_is_view,
     'tbl_storage_engine' => $tbl_storage_engine,
     'table_info_num_rows' => $table_info_num_rows,
     'tbl_collation' => $tbl_collation,
-    'showtable' => $showtable
+    'showtable' => $GLOBALS['showtable'],
+];
+
+/** @var Definition $definition */
+$definition = $containerBuilder->getDefinition(StructureController::class);
+array_map(
+    static function (string $parameterName, $value) use ($definition) {
+        $definition->replaceArgument($parameterName, $value);
+    },
+    array_keys($dependency_definitions),
+    $dependency_definitions
 );
 
-/** @var TableStructureController $controller */
-$controller = $container->get('TableStructureController', $dependency_definitions);
-$controller->indexAction();
+/** @var StructureController $controller */
+$controller = $containerBuilder->get(StructureController::class);
+$controller->indexAction($containerBuilder);

@@ -1,32 +1,32 @@
 <?php
 /* vim: set expandtab sw=4 ts=4 sts=4: */
-
 /**
  * Handles server engines page.
  *
  * @package PhpMyAdmin
  */
+declare(strict_types=1);
 
-namespace PMA;
+use PhpMyAdmin\Controllers\Server\EnginesController;
+use PhpMyAdmin\Response;
 
-use PMA\libraries\controllers\server\ServerEnginesController;
-use PMA\libraries\Response;
+if (! defined('ROOT_PATH')) {
+    define('ROOT_PATH', __DIR__ . DIRECTORY_SEPARATOR);
+}
 
-require_once 'libraries/common.inc.php';
+require_once ROOT_PATH . 'libraries/common.inc.php';
 
-$container = libraries\di\Container::getDefaultContainer();
-$container->factory(
-    'PMA\libraries\controllers\server\ServerEnginesController'
-);
-$container->alias(
-    'ServerEnginesController',
-    'PMA\libraries\controllers\server\ServerEnginesController'
-);
-$container->set('PMA\libraries\Response', Response::getInstance());
-$container->alias('response', 'PMA\libraries\Response');
+/** @var EnginesController $controller */
+$controller = $containerBuilder->get(EnginesController::class);
 
-/** @var ServerEnginesController $controller */
-$controller = $container->get(
-    'ServerEnginesController', array()
-);
-$controller->indexAction();
+/** @var Response $response */
+$response = $containerBuilder->get(Response::class);
+
+if (isset($_GET['engine']) && $_GET['engine'] !== '') {
+    $response->addHTML($controller->show([
+        'engine' => $_GET['engine'],
+        'page' => $_GET['page'] ?? null,
+    ]));
+} else {
+    $response->addHTML($controller->index());
+}

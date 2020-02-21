@@ -1,8 +1,8 @@
 <?php
-
 /**
  * `RENAME TABLE` keyword parser.
  */
+declare(strict_types=1);
 
 namespace PhpMyAdmin\SqlParser\Components;
 
@@ -13,10 +13,6 @@ use PhpMyAdmin\SqlParser\TokensList;
 
 /**
  * `RENAME TABLE` keyword parser.
- *
- * @category   Keywords
- *
- * @license    https://www.gnu.org/licenses/gpl-2.0.txt GPL-2.0+
  */
 class RenameOperation extends Component
 {
@@ -35,17 +31,27 @@ class RenameOperation extends Component
     public $new;
 
     /**
+     * @param Expression $old old expression
+     * @param Expression $new new expression containing new name
+     */
+    public function __construct($old = null, $new = null)
+    {
+        $this->old = $old;
+        $this->new = $new;
+    }
+
+    /**
      * @param Parser     $parser  the parser that serves as context
      * @param TokensList $list    the list of tokens that are being parsed
      * @param array      $options parameters for parsing
      *
      * @return RenameOperation[]
      */
-    public static function parse(Parser $parser, TokensList $list, array $options = array())
+    public static function parse(Parser $parser, TokensList $list, array $options = [])
     {
-        $ret = array();
+        $ret = [];
 
-        $expr = new self();
+        $expr = new static();
 
         /**
          * The state of the parser.
@@ -56,7 +62,7 @@ class RenameOperation extends Component
          *
          *      1 ------------------------[ TO ]-----------------------> 2
          *
-         *      2 ---------------------[ old name ]--------------------> 3
+         *      2 ---------------------[ new name ]--------------------> 3
          *
          *      3 ------------------------[ , ]------------------------> 0
          *      3 -----------------------[ else ]----------------------> (END)
@@ -87,10 +93,10 @@ class RenameOperation extends Component
                 $expr->old = Expression::parse(
                     $parser,
                     $list,
-                    array(
+                    [
                         'breakOnAlias' => true,
                         'parseField' => 'table',
-                    )
+                    ]
                 );
                 if (empty($expr->old)) {
                     $parser->error(
@@ -113,10 +119,10 @@ class RenameOperation extends Component
                 $expr->new = Expression::parse(
                     $parser,
                     $list,
-                    array(
+                    [
                         'breakOnAlias' => true,
                         'parseField' => 'table',
-                    )
+                    ]
                 );
                 if (empty($expr->new)) {
                     $parser->error(
@@ -128,7 +134,7 @@ class RenameOperation extends Component
             } elseif ($state === 3) {
                 if (($token->type === Token::TYPE_OPERATOR) && ($token->value === ',')) {
                     $ret[] = $expr;
-                    $expr = new self();
+                    $expr = new static();
                     $state = 0;
                 } else {
                     break;
@@ -144,7 +150,7 @@ class RenameOperation extends Component
         }
 
         // Last iteration was not saved.
-        if (!empty($expr->old)) {
+        if (! empty($expr->old)) {
             $ret[] = $expr;
         }
 
@@ -159,7 +165,7 @@ class RenameOperation extends Component
      *
      * @return string
      */
-    public static function build($component, array $options = array())
+    public static function build($component, array $options = [])
     {
         if (is_array($component)) {
             return implode(', ', $component);

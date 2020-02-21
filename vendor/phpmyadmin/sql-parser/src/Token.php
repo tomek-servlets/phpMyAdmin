@@ -1,20 +1,16 @@
 <?php
-
 /**
  * Defines a token along with a set of types and flags and utility functions.
  *
  * An array of tokens will result after parsing the query.
  */
+declare(strict_types=1);
 
 namespace PhpMyAdmin\SqlParser;
 
 /**
  * A structure representing a lexeme that explicitly indicates its
  * categorization for the purpose of parsing.
- *
- * @category Tokens
- *
- * @license  https://www.gnu.org/licenses/gpl-2.0.txt GPL-2.0+
  */
 class Token
 {
@@ -167,6 +163,7 @@ class Token
     const FLAG_SYMBOL_BACKTICK = 2;
     const FLAG_SYMBOL_USER = 4;
     const FLAG_SYMBOL_SYSTEM = 8;
+    const FLAG_SYMBOL_PARAMETER = 16;
 
     /**
      * The token it its raw string representation.
@@ -206,13 +203,14 @@ class Token
     /**
      * The position in the initial string where this token started.
      *
+     * The position is counted in chars, not bytes, so you should
+     * use mb_* functions to properly handle utf-8 multibyte chars.
+     *
      * @var int
      */
     public $position;
 
     /**
-     * Constructor.
-     *
      * @param string $token the value of the token
      * @param int    $type  the type of the token
      * @param int    $flags the flags of the token
@@ -238,7 +236,7 @@ class Token
         switch ($this->type) {
             case self::TYPE_KEYWORD:
                 $this->keyword = strtoupper($this->token);
-                if (!($this->flags & self::FLAG_KEYWORD_RESERVED)) {
+                if (! ($this->flags & self::FLAG_KEYWORD_RESERVED)) {
                     // Unreserved keywords should stay the way they are because they
                     // might represent field names.
                     return $this->token;
@@ -269,23 +267,42 @@ class Token
 
                 return $ret;
             case self::TYPE_STRING:
-                $quote = $this->token[0];
-                $str = str_replace($quote . $quote, $quote, $this->token);
+                // Trims quotes.
+                $str = $this->token;
+                $str = mb_substr($str, 1, -1, 'UTF-8');
 
-                return mb_substr($str, 1, -1, 'UTF-8'); // trims quotes
+                // Removes surrounding quotes.
+                $quote = $this->token[0];
+                $str = str_replace($quote . $quote, $quote, $str);
+
+                // Finally unescapes the string.
+                //
+                // `stripcslashes` replaces escape sequences with their
+                // representation.
+                //
+                // NOTE: In MySQL, `\f` and `\v` have no representation,
+                // even they usually represent: form-feed and vertical tab.
+                $str = str_replace('\f', 'f', $str);
+                $str = str_replace('\v', 'v', $str);
+                $str = stripcslashes($str);
+
+                return $str;
             case self::TYPE_SYMBOL:
                 $str = $this->token;
-                if ((isset($str[0])) && ($str[0] === '@')) {
+                if (isset($str[0]) && ($str[0] === '@')) {
                     // `mb_strlen($str)` must be used instead of `null` because
                     // in PHP 5.3- the `null` parameter isn't handled correctly.
                     $str = mb_substr(
                         $str,
-                        ((!empty($str[1])) && ($str[1] === '@')) ? 2 : 1,
+                        ! empty($str[1]) && ($str[1] === '@') ? 2 : 1,
                         mb_strlen($str),
                         'UTF-8'
                     );
                 }
-                if ((isset($str[0])) && (($str[0] === '`')
+                if (isset($str[0]) && ($str[0] === ':')) {
+                    $str = mb_substr($str, 1, mb_strlen($str), 'UTF-8');
+                }
+                if (isset($str[0]) && (($str[0] === '`')
                 || ($str[0] === '"') || ($str[0] === '\''))
                 ) {
                     $quote = $str[0];
@@ -307,8 +324,16 @@ class Token
     public function getInlineToken()
     {
         return str_replace(
-            array("\r", "\n", "\t"),
-            array('\r', '\n', '\t'),
+            [
+                "\r",
+                "\n",
+                "\t",
+            ],
+            [
+                '\r',
+                '\n',
+                '\t',
+            ],
             $this->token
         );
     }

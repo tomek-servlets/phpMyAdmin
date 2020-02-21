@@ -4,35 +4,40 @@
  * Handles table search tab
  *
  * display table search form, create SQL query from form data
- * and call PMA_executeQueryAndSendQueryResponse() to execute it
+ * and call Sql::executeQueryAndSendQueryResponse() to execute it
  *
  * @package PhpMyAdmin
  */
-use PMA\libraries\Response;
+declare(strict_types=1);
 
-/**
- * Gets some core libraries
- */
-require_once 'libraries/common.inc.php';
-require_once 'libraries/tbl_common.inc.php';
-require_once 'libraries/tbl_info.inc.php';
+use PhpMyAdmin\Controllers\Table\SearchController;
+use Symfony\Component\DependencyInjection\Definition;
 
-use PMA\libraries\controllers\table\TableSearchController;
+if (! defined('ROOT_PATH')) {
+    define('ROOT_PATH', __DIR__ . DIRECTORY_SEPARATOR);
+}
 
-$container = \PMA\libraries\di\Container::getDefaultContainer();
-$container->factory('PMA\libraries\controllers\table\TableSearchController');
-$container->alias(
-    'TableSearchController', 'PMA\libraries\controllers\table\TableSearchController'
-);
-$container->set('PMA\libraries\Response', Response::getInstance());
-$container->alias('response', 'PMA\libraries\Response');
+global $containerBuilder, $url_query;
+
+require_once ROOT_PATH . 'libraries/common.inc.php';
+require_once ROOT_PATH . 'libraries/tbl_common.inc.php';
 
 /* Define dependencies for the concerned controller */
-$dependency_definitions = array(
+$dependency_definitions = [
     'searchType' => 'normal',
-    'url_query' => &$url_query
+    'url_query' => &$url_query,
+];
+
+/** @var Definition $definition */
+$definition = $containerBuilder->getDefinition(SearchController::class);
+array_map(
+    static function (string $parameterName, $value) use ($definition) {
+        $definition->replaceArgument($parameterName, $value);
+    },
+    array_keys($dependency_definitions),
+    $dependency_definitions
 );
 
-/** @var TableSearchController $controller */
-$controller = $container->get('TableSearchController', $dependency_definitions);
+/** @var SearchController $controller */
+$controller = $containerBuilder->get(SearchController::class);
 $controller->indexAction();

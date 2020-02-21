@@ -4,9 +4,8 @@
  *
  * @package PhpMyAdmin
  */
-AJAX.registerOnload('transformations/sql_editor.js', function() {
-
+AJAX.registerOnload('transformations/sql_editor.js', function () {
     $('textarea.transform_sql_editor').each(function () {
-        PMA_getSQLEditor($(this), {}, 'both');
+        Functions.getSqlEditor($(this), {}, 'both');
     });
 });

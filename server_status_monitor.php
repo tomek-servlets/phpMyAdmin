@@ -5,17 +5,28 @@
  *
  * @package PhpMyAdmin
  */
+declare(strict_types=1);
 
-use PMA\libraries\ServerStatusData;
-use PMA\libraries\Response;
+use PhpMyAdmin\Controllers\Server\Status\MonitorController;
+use PhpMyAdmin\DatabaseInterface;
+use PhpMyAdmin\Response;
 
-require_once 'libraries/common.inc.php';
-require_once 'libraries/server_common.inc.php';
-require_once 'libraries/server_status_monitor.lib.php';
-require_once 'libraries/replication.inc.php';
-require_once 'libraries/replication_gui.lib.php';
+if (! defined('ROOT_PATH')) {
+    define('ROOT_PATH', __DIR__ . DIRECTORY_SEPARATOR);
+}
 
-$response = Response::getInstance();
+require_once ROOT_PATH . 'libraries/common.inc.php';
+require_once ROOT_PATH . 'libraries/server_common.inc.php';
+require_once ROOT_PATH . 'libraries/replication.inc.php';
+
+/** @var Response $response */
+$response = $containerBuilder->get(Response::class);
+
+/** @var DatabaseInterface $dbi */
+$dbi = $containerBuilder->get(DatabaseInterface::class);
+
+/** @var MonitorController $controller */
+$controller = $containerBuilder->get(MonitorController::class);
 
 /**
  * Ajax request
@@ -23,81 +34,53 @@ $response = Response::getInstance();
 if ($response->isAjax()) {
     // Send with correct charset
     header('Content-Type: text/html; charset=UTF-8');
-
-    // real-time charting data
-    if (isset($_REQUEST['chart_data'])) {
-        switch($_REQUEST['type']) {
-        case 'chartgrid': // Data for the monitor
-            $ret = PMA_getJsonForChartingData();
-            $response->addJSON('message', $ret);
-            exit;
-        }
-    }
-
-    if (isset($_REQUEST['log_data'])) {
-
-        $start = intval($_REQUEST['time_start']);
-        $end = intval($_REQUEST['time_end']);
-
-        if ($_REQUEST['type'] == 'slow') {
-            $return = PMA_getJsonForLogDataTypeSlow($start, $end);
-            $response->addJSON('message', $return);
-            exit;
-        }
-
-        if ($_REQUEST['type'] == 'general') {
-            $return = PMA_getJsonForLogDataTypeGeneral($start, $end);
-            $response->addJSON('message', $return);
-            exit;
-        }
-    }
-
-    if (isset($_REQUEST['logging_vars'])) {
-        $loggingVars = PMA_getJsonForLoggingVars();
-        $response->addJSON('message', $loggingVars);
-        exit;
-    }
-
-    if (isset($_REQUEST['query_analyzer'])) {
-        $return = PMA_getJsonForQueryAnalyzer();
-        $response->addJSON('message', $return);
-        exit;
-    }
 }
 
-/**
- * JS Includes
- */
-$header   = $response->getHeader();
-$scripts  = $header->getScripts();
-$scripts->addFile('jquery/jquery.tablesorter.js');
-$scripts->addFile('jquery/jquery.sortableTable.js');
-$scripts->addFile('jquery/jquery-ui-timepicker-addon.js');
-// for charting
-$scripts->addFile('jqplot/jquery.jqplot.js');
-$scripts->addFile('jqplot/plugins/jqplot.pieRenderer.js');
-$scripts->addFile('jqplot/plugins/jqplot.canvasTextRenderer.js');
-$scripts->addFile('jqplot/plugins/jqplot.canvasAxisLabelRenderer.js');
-$scripts->addFile('jqplot/plugins/jqplot.dateAxisRenderer.js');
-$scripts->addFile('jqplot/plugins/jqplot.highlighter.js');
-$scripts->addFile('jqplot/plugins/jqplot.cursor.js');
-$scripts->addFile('jqplot/plugins/jqplot.byteFormatter.js');
+// real-time charting data
+if ($response->isAjax() && isset($_POST['chart_data']) && $_POST['type'] === 'chartgrid') {
+    $response->addJSON($controller->chartingData([
+        'requiredData' => $_POST['requiredData'] ?? null,
+    ]));
+} elseif ($response->isAjax() && isset($_POST['log_data']) && $_POST['type'] === 'slow') {
+    $response->addJSON($controller->logDataTypeSlow([
+        'time_start' => $_POST['time_start'] ?? null,
+        'time_end' => $_POST['time_end'] ?? null,
+    ]));
+} elseif ($response->isAjax() && isset($_POST['log_data']) && $_POST['type'] === 'general') {
+    $response->addJSON($controller->logDataTypeGeneral([
+        'time_start' => $_POST['time_start'] ?? null,
+        'time_end' => $_POST['time_end'] ?? null,
+        'limitTypes' => $_POST['limitTypes'] ?? null,
+        'removeVariables' => $_POST['removeVariables'] ?? null,
+    ]));
+} elseif ($response->isAjax() && isset($_POST['logging_vars'])) {
+    $response->addJSON($controller->loggingVars([
+        'varName' => $_POST['varName'] ?? null,
+        'varValue' => $_POST['varValue'] ?? null,
+    ]));
+} elseif ($response->isAjax() && isset($_POST['query_analyzer'])) {
+    $response->addJSON($controller->queryAnalyzer([
+        'database' => $_POST['database'] ?? null,
+        'query' => $_POST['query'] ?? null,
+    ]));
+} else {
+    $header = $response->getHeader();
+    $scripts = $header->getScripts();
+    $scripts->addFile('vendor/jquery/jquery.tablesorter.js');
+    $scripts->addFile('vendor/jquery/jquery.sortableTable.js');
+    // for charting
+    $scripts->addFile('vendor/jqplot/jquery.jqplot.js');
+    $scripts->addFile('vendor/jqplot/plugins/jqplot.pieRenderer.js');
+    $scripts->addFile('vendor/jqplot/plugins/jqplot.enhancedPieLegendRenderer.js');
+    $scripts->addFile('vendor/jqplot/plugins/jqplot.canvasTextRenderer.js');
+    $scripts->addFile('vendor/jqplot/plugins/jqplot.canvasAxisLabelRenderer.js');
+    $scripts->addFile('vendor/jqplot/plugins/jqplot.dateAxisRenderer.js');
+    $scripts->addFile('vendor/jqplot/plugins/jqplot.highlighter.js');
+    $scripts->addFile('vendor/jqplot/plugins/jqplot.cursor.js');
+    $scripts->addFile('jqplot/plugins/jqplot.byteFormatter.js');
 
-$scripts->addFile('server_status_monitor.js');
-$scripts->addFile('server_status_sorter.js');
+    $scripts->addFile('server/status/monitor.js');
+    $scripts->addFile('server/status/sorter.js');
 
-
-/**
- * start output
- */
-$ServerStatusData = new ServerStatusData();
-
-/**
- * Output
- */
-$response->addHTML('<div>');
-$response->addHTML($ServerStatusData->getMenuHtml());
-$response->addHTML(PMA_getHtmlForMonitor($ServerStatusData));
-$response->addHTML(PMA_getHtmlForClientSideDataAndLinks($ServerStatusData));
-$response->addHTML('</div>');
-exit;
+    $response->addHTML($controller->index());
+}
